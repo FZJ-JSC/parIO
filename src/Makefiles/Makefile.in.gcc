@@ -1,0 +1,123 @@
+default: all
+
+# ====================== #
+# Optional code features #
+# ====================== #
+USE_DEBMODE             := NO
+
+# ====================== #
+# HDF5 Path              #
+# ====================== #
+#HDF5_BASE    = /opt/hdf5/1.8.11.f03_gcc44_ompi17
+#HDF5_BASE    = /home/itv/lib/hdf5/1.8.11.f03_gcc44_ompi17
+HDF5_BASE    = /home/itv/lib/hdf5/1.8.12_gcc44_ompi17
+
+# ====================== #
+# Revision               #
+# ====================== #
+# SVN #####################
+REV_PPDEF := -D'SVN_REV="$(shell svnversion -n .)"'
+
+# GIT #####################
+#REV_PPDEF := -D'DEV_REV="$(shell git describe --dirty --match "v[0-9]*" --abbrev=7| sed -e 's/-/./g' )"'
+
+###################################################################################
+############### DO NOT CHANGE BEYONG THIS POINT WITHOUT KNOWLEDGE #################
+###################################################################################
+
+# ================ #
+# general commands
+# ================ #
+DEL_FILE      = rm -f
+DEL_DIR       = rm -rf
+CHK_DIR_EXISTS= test -d
+MKDIR         = mkdir -p
+COPY_FILE     = cp -f
+SED           = sed
+DOXYGEN       = doxygen
+
+# =========== #
+# Directories #
+# =========== #
+HOMEDIR = $(shell pwd | sed -e 's/parIO\/src.*//')parIO
+LIBDIR  = $(HOMEDIR)/lib
+MODDIR  = $(HOMEDIR)/include
+OBJDIR  = $(HOMEDIR)/.obj
+INTERFDIR= $(HOMEDIR)/src/interf
+
+# ===================== #
+# Compiler and archiver #
+# ===================== #
+F90 = $(MPIFC)
+CC  = $(MPICC)
+AR  = ar -rcsv
+TMPFILES = *.i90
+
+# ============== #
+# Compiler flags #
+# ============== #
+F90FLAGS         := -cpp -ffree-line-length-none
+F90FLAGS_RELEASE := $(F90FLAGS) -O3
+F90FLAGS_DEBUG   := $(F90FLAGS) -g
+
+# ================== #
+# External libraries #
+# ================== #
+# HDF5 #########################
+HDF5_INCFLAGS = -I$(HDF5_BASE)/include
+HDF5_LDFLAGS  = -L$(HDF5_BASE)/lib \
+                -lhdf5hl_fortran \
+                -lhdf5_hl \
+                -lhdf5_fortran \
+                -lhdf5 \
+                -lz
+
+# SYSTEM #######################
+SYS_INCFLAGS = -I$(HOMEDIR)/src
+SYS_LDFLAGS  = -lm
+SYS_PPDEFS   = -DUSE_MPI_MODULE
+
+# FEATURES ######################
+ifeq ($(USE_DEBMODE),YES)
+    FEATURE_PPDEFS := $(FEATURE_PPDEFS) -DUSE_DEBMODE
+else ifeq ($(USE_DEBMODE),NO)
+else
+    echo 'ERROR: USE_DEBMODE not set correctly - use YES or NO without spaces.'
+endif
+
+# ================= #
+# check paths       #
+# ================= #
+
+# check auto-detected project directory
+ifeq ($(wildcard $(HOMEDIR)/src/Makefile.in),)
+  define errortxt
+
+    ERROR in Makefile.in:
+    Cannot find Makefile.in in project directory.
+    Auto-detection of project directory probably failed in Makefile.in.
+    Project directory is detected as: $(HOMEDIR)
+
+  endef
+  $(error $(errortxt))
+endif
+
+# check path to hdf5 library
+ifeq ($(wildcard $(HDF5_BASE)/lib/libhdf5hl_fortran.la),)
+  define errortxt
+
+    ERROR in Makefile.in:
+    Cannot find HDF5 library.
+    Library cannot be found at: $(HDF5_BASE)/lib/libhdf5hl_fortran.la
+
+  endef
+  $(error $(errortxt))
+endif
+
+# ================ #
+# combine settings #
+# ================ #
+LDFLAGS  = $(HDF5_LDFLAGS)  $(SYS_LDFLAGS)
+INCFLAGS = $(HDF5_INCFLAGS) $(SYS_INCFLAGS)
+MODFLAGS = -I$(MODDIR) -J$(MODDIR)
+PPDEFS   = $(SYS_PPDEFS) $(REV_PPDEF) $(FEATURE_PPDEFS)

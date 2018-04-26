@@ -1,0 +1,700 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_pdat
+!! @{
+!!
+!> @file pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_pdat/w_pdat
+!! @details - type: [_IO_MEMVAR_TYPE_]
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - read/write collectively
+!!          - calls hysl2dset, hysl2hysl functions
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+#undef _IO_DIMS_
+#define _IO_DIMS_ [_IO_MEMVAR_DIMS_]
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to read processor data 3d real(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   file_offs      offset of processor specific data
+!> @param   mem_dims      dimension of data in mem
+!> @param   mem           memory to read from
+!> @param   ierr          return code
+!>
+!> @ingroup interf
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1(loc_id, dset_name, file_offs, mem_dims, mem, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dset_name
+  integer       , intent(in) :: file_offs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: mem
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: mem_size([_IO_MEMVAR_DIMS_])
+  integer :: mem_offs([_IO_MEMVAR_DIMS_])
+
+  PRTFNC(r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1)
+  ierr = 0
+
+  mem_size = mem_dims
+  mem_offs = 0
+  call r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs, mem_dims, mem, mem_size, mem_offs, ierr)
+
+end subroutine r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to read processor data 3d real(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   file_offs      offset of processor specific data
+!> @param   mem_dims      dimension of mem
+!> @param   mem           memory to read from
+!> @param[in] mem_size    size of data in memory to read to
+!> @param[in] mem_offs    offset in memory
+!> @param   ierr          return code
+!>
+!> @ingroup interf
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs, mem_dims, mem, mem_size, mem_offs, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dset_name
+  integer       , intent(in) :: file_offs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: mem
+  integer, intent (in) :: mem_size([_IO_MEMVAR_DIMS_])
+  integer, intent (in) :: mem_offs([_IO_MEMVAR_DIMS_])
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer(HSIZE_T) :: mem_dims_h5([_IO_MEMVAR_DIMS_]), mem_size_h5([_IO_MEMVAR_DIMS_]), mem_offs_h5([_IO_MEMVAR_DIMS_])
+  integer(HSIZE_T) :: file_offs_h5([_IO_MEMVAR_DIMS_])
+  integer :: i,j,k,m, mem_errs, mem_errs0
+
+  PRTFNC(r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2)
+  ierr = 0
+
+  PRTVERBOSE2('read processor data ',trim(dset_name), 2)
+
+  ! check settings
+  if( any(mem_dims -(mem_size+mem_offs) < 0) ) then
+    PRTERR1('mem_size+mem_offs is larger than mem_dims')
+  end if
+
+  ! read data
+  mem_dims_h5 = mem_dims
+  file_offs_h5 = file_offs
+
+  if(sum(mem_offs) == 0 .and. all(mem_size == mem_dims)) then
+    call r_hysl2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, file_offs_h5, mem_dims_h5, mem, ierr, pario_coll_dxfer_id)
+  else ! read file-hyperslab to memory-hyperslab
+    mem_size_h5 = mem_size
+    mem_offs_h5 = mem_offs
+    call r_hysl2hysl_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, file_offs_h5, mem_dims_h5, mem, mem_size_h5, mem_offs_h5, ierr, pario_coll_dxfer_id)
+  end if
+  if(ierr /= 0 .and. mpi_proc_id == mpi_myroot) then
+    write(*,*) 'ERROR: r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() failed for ',trim(dset_name)
+    return
+  endif
+
+  ! test if dump_test
+  if(dump_test) then
+    mem_errs = 0
+#if (_IO_DIMS_==1)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        if(mem(i) /= (i+file_offs(1)) ) mem_errs = mem_errs +1
+      end do
+#endif
+#if (_IO_DIMS_==2)
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      if(mem_errs /= 0) exit
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        if(mem(i,j) /= (i+file_offs(1)) +(j+file_offs(2)) ) mem_errs = mem_errs +1
+      end do
+    end do
+#endif
+#if (_IO_DIMS_==3)
+  do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+    if(mem_errs /= 0) exit
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      if(mem_errs /= 0) exit
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        if(mem(i,j,k) /= (i+file_offs(1)) +(j+file_offs(2)) +(k+file_offs(3)) ) mem_errs = mem_errs +1
+      end do
+    end do
+  end do
+#endif
+#if (_IO_DIMS_==4)
+  do m=1+mem_offs(4), mem_size(4)+mem_offs(4)
+    if(mem_errs /= 0) exit
+    do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+      if(mem_errs /= 0) exit
+      do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+        if(mem_errs /= 0) exit
+        do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+          if(mem(i,j,k,m) /= (i+file_offs(1)) +(j+file_offs(2)) +(k+file_offs(3)) +(m+file_offs(4)) ) mem_errs = mem_errs +1
+        end do
+      end do
+    end do
+  end do
+#endif
+      call MPI_reduce(mem_errs, mem_errs0, 1, MPI_INTEGER, MPI_MAX, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+      if(mem_errs0 > 0) then
+        if(mpi_proc_id == mpi_myroot) write(*,*) '  FAILED: dump_test failed for ',trim(dset_name)
+      else
+        if(mpi_proc_id == mpi_myroot) write(*,*) '  PASS  : dump_test passed for ',trim(dset_name)
+      end if
+  endif
+
+end subroutine r_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to write processor data 3d real(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   file_offs      offset of processor specific data
+!> @param   mem_dims      dimension of data in mem
+!> @param   mem           memory to read from
+!> @param   ierr          return code
+!> @param   no_dump       if true, skip real writing
+!>
+!> @ingroup interf_pdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1(loc_id, dset_name, file_offs, mem_dims, mem, ierr, no_dump)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(len=*), intent(in) :: dset_name
+  integer       , intent(in) :: file_offs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: mem
+  integer, intent(out) :: ierr
+  logical, intent(in), optional :: no_dump
+
+  ! other vars
+  integer :: mem_size([_IO_MEMVAR_DIMS_])
+  integer :: mem_offs([_IO_MEMVAR_DIMS_])
+
+  PRTFNC(w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1)
+  ierr = 0
+
+  mem_size = mem_dims
+  mem_offs = 0
+  call w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs, mem_dims, mem, mem_size, mem_offs, ierr, no_dump)
+
+end subroutine w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to write processor data 3d real(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   file_offs      offset of processor specific data
+!> @param   mem_dims      dimension of data in mem
+!> @param   mem           memory to read from
+!> @param   ierr          return code
+!> @param   no_dump       if true, skip real writing
+!>
+!> @ingroup interf_pdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs, mem_dims, mem, mem_size, mem_offs, ierr, no_dump)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(len=*), intent(in) :: dset_name
+  integer       , intent(in) :: file_offs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: mem
+  integer, intent(in) :: mem_size([_IO_MEMVAR_DIMS_])
+  integer, intent(in) :: mem_offs([_IO_MEMVAR_DIMS_])
+  integer, intent(out) :: ierr
+  logical, intent(in), optional :: no_dump
+
+  ! other vars
+  character(len=1024) :: dname_hist
+  character(len=1024) :: dname_minmaxmean
+  integer(HSIZE_T) :: mem_dims_h5([_IO_MEMVAR_DIMS_]), mem_size_h5([_IO_MEMVAR_DIMS_]), mem_offs_h5([_IO_MEMVAR_DIMS_])
+  integer(HSIZE_T) :: file_offs_h5([_IO_MEMVAR_DIMS_])
+  double precision :: mem_min, mem_max, mem_mean
+  integer :: i,j,k,m
+
+  PRTFNC(w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2)
+  ierr = 0
+
+  PRTVERBOSE2('write processor data ',trim(dset_name), 2)
+
+  ! check settings
+  if( any(mem_dims -(mem_size+mem_offs) < 0) ) then
+    PRTERR1('mem_size+mem_offs is larger than mem_dims')
+  end if
+
+  if(present(no_dump)) then
+    if(no_dump) return
+  end if
+
+  ! if dump_test fill with analytic values
+  if(dump_test) then
+#if (_IO_DIMS_==1)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem(i) = (i+file_offs(1))
+      end do
+#endif
+#if (_IO_DIMS_==2)
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem(i,j) = (i+file_offs(1)) +(j+file_offs(2))
+      end do
+    end do
+#endif
+#if (_IO_DIMS_==3)
+  do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem(i,j,k) = (i+file_offs(1)) +(j+file_offs(2)) +(k+file_offs(3))
+      end do
+    end do
+  end do
+#endif
+#if (_IO_DIMS_==4)
+  do m=1+mem_offs(4), mem_size(4)+mem_offs(4)
+    do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+      do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+        do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+          mem(i,j,k,m) = (i+file_offs(1)) +(j+file_offs(2)) +(k+file_offs(3)) +(m+file_offs(4))
+        end do
+      end do
+    end do
+  end do
+#endif
+
+  end if
+
+  ! write min/max of dataset to file
+  if(dump_hist .or. dump_minmaxmean) then
+    dname_minmaxmean = trim(dset_name)//'_minmaxmean'
+    call w_minmaxmean_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname_minmaxmean, file_offs, mem_dims, mem, mem_size, mem_offs, &
+         mem_min, mem_max, mem_mean, ierr)
+  end if
+
+  ! write histogram to file
+  if(dump_hist) then
+    dname_hist = trim(dset_name)//'_hist'
+    call w_hist_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname_hist, mem_dims, mem, mem_size, mem_offs, &
+         mem_min, mem_max, ierr)
+  end if
+
+  ! write dataset to file
+  mem_dims_h5 = mem_dims
+  file_offs_h5 = file_offs
+
+  if(sum(mem_offs) == 0 .and. all(mem_size == mem_dims)) then
+    call w_dset2hysl_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, file_offs_h5, mem_dims_h5, mem, ierr, pario_coll_dxfer_id)
+  else ! write memory-hyperslab to file-hyperslab
+    mem_size_h5 = mem_size
+    mem_offs_h5 = mem_offs
+    call w_hysl2hysl_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, file_offs_h5, mem_dims_h5, mem, mem_size_h5, mem_offs_h5, ierr, pario_coll_dxfer_id)
+  end if
+  if(ierr /= 0 .and. mpi_proc_id == mpi_myroot) then
+    write(*,*) 'ERROR: w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() failed for ',trim(dset_name)
+    return
+  endif
+
+end subroutine w_pdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] write dataset 3d histogram
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   mem_dims      size of dimensions
+!> @param   mem           memory of dataset
+!> @param   mem_min       min value in mem
+!> @param   mem_max       max value in mem
+!> @param   ierr          return code
+!>
+!> @ingroup interf_pdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_hist_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, mem_dims, mem, mem_size, mem_offs, mem_min, mem_max, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T)  ,intent(in)    :: loc_id
+  character(len=*),intent(in)    :: dset_name
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: mem
+  integer       , intent(in) :: mem_size ([_IO_MEMVAR_DIMS_]),  mem_offs ([_IO_MEMVAR_DIMS_])
+  double precision, intent(in) :: mem_min, mem_max
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer(HID_T)  :: mem_type_id
+  integer(HID_T)  :: dset_id
+
+  ! tmp vector for histograms
+  integer, parameter :: hist_buckets = 1000
+  double precision, dimension(:,:), allocatable :: hist
+  double precision, dimension(:), allocatable :: hist0
+  integer(HSIZE_T) :: hist_size(2)
+  integer(HID_T) :: histspace_id, hist_id
+  integer :: ix, i,j,k,m
+  double precision :: mem_val, mem_min_, mem_max_
+
+  PRTFNC(w_hist_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+  ierr = 0
+
+  ! allocate mem for hist
+  allocate(hist(hist_buckets,2), stat=ierr); CHKERRQ0(ierr)
+
+  ! write histogram to file
+  PRTVERBOSE2('write histogram of ',trim(dset_name), 2)
+
+  ! check mem_max and mem_min
+  mem_max_ = mem_max
+  mem_min_ = mem_min
+  if(mem_max == mem_min) then
+    mem_max_ = mem_max +1.d0
+  end if
+
+  ! calc hist on each mpi proc
+  do ix=1, hist_buckets
+    hist(ix,1) = dble(ix-1) / (hist_buckets-1) * (mem_max_-mem_min_) +mem_min_
+  end do
+
+  hist(:,2) = 0.d0
+#if (_IO_DIMS_==1)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem_val = mem(i)
+#else
+#if (_IO_DIMS_==2)
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem_val = mem(i,j)
+#else
+#if (_IO_DIMS_==3)
+  do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        mem_val = mem(i,j,k)
+#else
+#if (_IO_DIMS_==4)
+  do m=1+mem_offs(4), mem_size(4)+mem_offs(4)
+    do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+      do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+        do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+          mem_val = mem(i,j,k,m)
+#endif
+#endif
+#endif
+#endif
+        ix = int(dble(hist_buckets-1) / (mem_max_-mem_min_) *(mem_val-mem_min_) + 1)
+        ix = min(ix,hist_buckets)
+        ix = max(ix,1)
+        hist(ix,2) = hist(ix,2) + 1.d0
+#if (_IO_DIMS_==1)
+      enddo
+#else
+#if (_IO_DIMS_==2)
+      enddo
+    enddo
+#else
+#if (_IO_DIMS_==3)
+      enddo
+    enddo
+  enddo
+#else
+#if (_IO_DIMS_==4)
+        enddo
+      enddo
+    enddo
+  enddo
+#endif
+#endif
+#endif
+#endif
+
+  ! calc global hist
+  allocate(hist0(hist_buckets), stat=ierr); CHKERRQ0(ierr)
+  call MPI_reduce(hist(1,2), hist0, hist_buckets, MPI_DOUBLE_PRECISION, MPI_SUM, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  if(mpi_proc_id == mpi_myroot) hist(:,2) = hist0(:)
+  !call MPI_Bcast(hist(1,2), hist_buckets, MPI_DOUBLE_PRECISION, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  deallocate(hist0)
+
+  ! create dataspace for the whole dataset in the file
+  hist_size = (/hist_buckets,2/)
+  call H5Screate_simple_f(2, hist_size, histspace_id, ierr, hist_size); CHKERRLW (ierr, 0)
+  call H5Dcreate_f(loc_id, trim(dset_name), H5T_NATIVE_DOUBLE, histspace_id, hist_id, ierr); CHKERRLW (ierr, 0)
+
+  ! write data
+  if(mpi_proc_id == mpi_myroot) then
+    call H5Dwrite_f( hist_id, H5T_NATIVE_DOUBLE, hist, hist_size, ierr); CHKERRLW (ierr, 0)
+  end if
+
+  ! close dataspace and dataset
+  call H5Dclose_f(hist_id, ierr); CHKERRLW (ierr, 0)
+  call H5Sclose_f(histspace_id, ierr); CHKERRLW (ierr, 0)
+
+  ! deallocate some memory
+  deallocate(hist)
+
+end subroutine w_hist_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+
+!---------------------------------------------------------------------------
+!> @brief   write dataset 3d min,max,mean
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   file_offs      offset of processor specific data
+!> @param   mem_dims      size of dimensions
+!> @param   mem           memory of dataset
+!> @param   mem_min       minimum value mem over all procs
+!> @param   mem_max       maximum value mem over all procs
+!> @param   mem_mean      mean value mem over all procs
+!> @param   ierr          return code
+!>
+!> @ingroup interf_pdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_minmaxmean_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, file_offs, mem_dims, mem, mem_size, mem_offs, &
+            mem_min, mem_max, mem_mean, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T)  ,intent(in)    :: loc_id
+  character(len=*),intent(in)    :: dset_name
+  integer       , intent(in) :: file_offs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: mem
+  integer       , intent(in) :: mem_size ([_IO_MEMVAR_DIMS_]),  mem_offs ([_IO_MEMVAR_DIMS_])
+  double precision, intent(out) :: mem_min, mem_max, mem_mean
+  integer, intent(out) :: ierr
+
+  ! other vars
+  double precision :: dset_min
+  double precision :: dset_max
+  double precision :: dset_sum, dset_sum0
+  double precision :: dset_mean, dset_mean0
+  double precision :: dset_sum_i, dset_sum_j,dset_sum_k, dset_sum_m
+
+  integer :: i,j,k,m
+  integer :: mem_endpos([_IO_MEMVAR_DIMS_]), mem_endpos0([_IO_MEMVAR_DIMS_])
+  integer(kind=HSIZE_T) :: mmm_size(1)
+  integer(kind=HID_T) :: mmmspace_id, mmm_id
+  double precision :: mmm(3)
+
+  PRTFNC(w_minmaxmean_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+  ierr = 0
+
+  ! write min.max,mean to file
+  PRTVERBOSE2('write  mean,min,max of ',trim(dset_name), 2)
+
+  ! calc local min, max, mean
+
+  dset_sum = 0.d0
+#if (_IO_DIMS_==1)
+  dset_min = mem(1+mem_offs(1))
+  dset_max = dset_min
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        dset_sum = dset_sum+ mem(i)
+        dset_min = min(dset_min, dble(mem(i)))
+        dset_max = max(dset_max, dble(mem(i)))
+      end do
+#else
+#if (_IO_DIMS_==2)
+  dset_min = mem(1+mem_offs(1),1+mem_offs(2))
+  dset_max = dset_min
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      dset_sum_i = 0.d0
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        dset_sum_i = dset_sum_i+ mem(i,j)
+        dset_min = min(dset_min, dble(mem(i,j)))
+        dset_max = max(dset_max, dble(mem(i,j)))
+      enddo
+      dset_sum = dset_sum +dset_sum_i
+    enddo
+#else
+#if (_IO_DIMS_==3)
+  dset_min = mem(1+mem_offs(1),1+mem_offs(2),1+mem_offs(3))
+  dset_max = dset_min
+  do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+    dset_sum_j = 0.d0
+    do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+      dset_sum_i = 0.d0
+      do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+        dset_sum_i = dset_sum_i+ mem(i,j,k)
+        dset_min = min(dset_min, dble(mem(i,j,k)))
+        dset_max = max(dset_max, dble(mem(i,j,k)))
+      enddo
+      dset_sum_j = dset_sum_j +dset_sum_i
+    enddo
+    dset_sum = dset_sum +dset_sum_j
+  enddo
+#else
+#if (_IO_DIMS_==4)
+  dset_min = mem(1+mem_offs(1),1+mem_offs(2),1+mem_offs(3),1+mem_offs(4))
+  dset_max = dset_min
+  do m=1+mem_offs(4), mem_size(4)+mem_offs(4)
+    dset_sum_k = 0.d0
+    do k=1+mem_offs(3), mem_size(3)+mem_offs(3)
+      dset_sum_j = 0.d0
+      do j=1+mem_offs(2), mem_size(2)+mem_offs(2)
+        dset_sum_i = 0.d0
+        do i=1+mem_offs(1), mem_size(1)+mem_offs(1)
+          dset_sum_i = dset_sum_i+ mem(i,j,k,m)
+          dset_min = min(dset_min, dble(mem(i,j,k,m)))
+          dset_max = max(dset_max, dble(mem(i,j,k,m)))
+        enddo
+        dset_sum_j = dset_sum_j +dset_sum_i
+      enddo
+      dset_sum_k = dset_sum_k +dset_sum_j
+    enddo
+    dset_sum = dset_sum +dset_sum_k
+  enddo
+#endif
+#endif
+#endif
+#endif
+
+  ! calc global min
+  dset_min = dble(minval(mem))
+  call MPI_reduce(dset_min, mem_min, 1, MPI_DOUBLE_PRECISION, MPI_MIN, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  call MPI_Bcast(mem_min, 1, MPI_DOUBLE_PRECISION, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+
+  ! calc global max
+  dset_max = dble(maxval(mem))
+  call MPI_reduce(dset_max, mem_max, 1, MPI_DOUBLE_PRECISION, MPI_MAX, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  call MPI_Bcast(mem_max, 1, MPI_DOUBLE_PRECISION, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+
+  ! sum all to mpi proc 0
+  mem_endpos = mem_dims+file_offs
+  call MPI_reduce(mem_endpos, mem_endpos0, [_IO_MEMVAR_DIMS_], MPI_INTEGER, MPI_MAX, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  call MPI_reduce(dset_sum, dset_sum0, 1, MPI_DOUBLE_PRECISION, MPI_SUM, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+  if(mpi_proc_id == mpi_myroot) then
+    dset_mean0 = dset_sum0
+    do i=1, [_IO_MEMVAR_DIMS_]; dset_mean0 = dset_mean0 / dble(mem_endpos0(i)); end do
+    mem_mean = dset_mean0
+  end if
+  call MPI_Bcast(mem_mean, 1, MPI_DOUBLE_PRECISION, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+
+  ! create dataspace for min,max,mean
+  mmm_size = (/3/)
+  call H5Screate_simple_f(1, mmm_size, mmmspace_id, ierr, mmm_size); CHKERRLW (ierr, 0)
+  call H5Dcreate_f(loc_id, trim(dset_name), H5T_NATIVE_DOUBLE, mmmspace_id, mmm_id, ierr); CHKERRLW (ierr, 0)
+
+  ! write data with proc mpi_myroot
+  if(mpi_proc_id == mpi_myroot) then
+    mmm(1) = mem_min
+    mmm(2) = mem_max
+    mmm(3) = mem_mean
+    call H5Dwrite_f( mmm_id, H5T_NATIVE_DOUBLE, mmm, mmm_size, ierr); CHKERRLW (ierr, 0)
+  end if
+
+  ! close dataspace and dataset
+  call H5Dclose_f(mmm_id, ierr); CHKERRLW (ierr, 0)
+  call H5Sclose_f(mmmspace_id, ierr); CHKERRLW (ierr, 0)
+
+end subroutine w_minmaxmean_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]

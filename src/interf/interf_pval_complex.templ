@@ -1,0 +1,275 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_pval
+!! @{
+!!
+!> @file pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_pval/w_pval
+!! @details - type: [_IO_MEMVAR_TYPE_]
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - read/write collectively
+!!          - calls dset2dset, hysl2dset, hysl2hysl functions
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to read processor data 3d complex(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   cfile_offs_abs      offset of processor specific data
+!> @param   cmem_dims      dimension of data in mem
+!> @param   cmem           memory to read from
+!> @param   ierr          return code
+!>
+!> @ingroup interf_pvala
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, ierr)
+  use iso_C_binding
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dset_name
+  integer       , intent(in) :: cfile_offs_abs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: cmem_dims ([_IO_MEMVAR_DIMS_])
+  complex(kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: cmem
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: cmem_size([_IO_MEMVAR_DIMS_])
+  integer :: cmem_offs([_IO_MEMVAR_DIMS_])
+
+  PRTFNC(r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1)
+  ierr = 0
+
+  cmem_size = cmem_dims
+  cmem_offs = 0
+  call r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, cmem_size, cmem_offs, ierr)
+
+end subroutine r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to read processor data 3d complex(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   cfile_offs_abs      offset of processor specific data
+!> @param   cmem_dims      dimension of data in mem
+!> @param   cmem           memory to read from
+!> @param   ierr          return code
+!>
+!> @ingroup interf_pvala
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, cmem_size, cmem_offs, ierr)
+  use iso_C_binding
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dset_name
+  integer       , intent(in) :: cfile_offs_abs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: cmem_dims ([_IO_MEMVAR_DIMS_])
+  complex(kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: cmem
+  integer, intent(in) :: cmem_size([_IO_MEMVAR_DIMS_])
+  integer, intent(in) :: cmem_offs([_IO_MEMVAR_DIMS_])
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer, dimension([_IO_MEMVAR_DIMS_]) :: mem_dims, mem_size, mem_offs, file_offs_abs
+  type(c_ptr) :: cptr
+  real(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DDOT_]), pointer :: fptr
+
+  PRTFNC(r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2)
+  ierr = 0
+
+  ! read data as real values
+  mem_size = cmem_size
+  mem_size(1) = mem_size(1)*2
+
+  mem_offs = cmem_offs
+  mem_offs(1) = mem_offs(1)*2
+
+  mem_dims = cmem_dims
+  mem_dims(1) = mem_dims(1)*2
+
+  file_offs_abs = cfile_offs_abs
+  file_offs_abs(1) = file_offs_abs(1)*2
+
+  cptr = c_loc(cmem)
+  call c_f_pointer(cptr, fptr, mem_dims)
+
+  call r_pval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs_abs, mem_dims, fptr, mem_size, mem_offs, ierr)
+
+end subroutine r_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to write processor data 3d complex(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   cfile_offs_abs     offset of processor specific data
+!> @param   cmem_dims     dimension of data in mem
+!> @param   cmem          memory to read from
+!> @param   ierr          return code
+!> @param   no_dump       if true, skip real writing
+!>
+!> @ingroup interf_pvala
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, ierr, no_dump)
+  use iso_C_binding
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(len=*), intent(in) :: dset_name
+  integer       , intent(in) :: cfile_offs_abs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: cmem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: cmem
+  integer, intent(out) :: ierr
+  logical, intent(in), optional :: no_dump
+
+  ! other vars
+  integer :: cmem_size([_IO_MEMVAR_DIMS_])
+  integer :: cmem_offs([_IO_MEMVAR_DIMS_])
+
+  PRTFNC(w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1)
+  ierr = 0
+
+  cmem_size = cmem_dims
+  cmem_offs = 0
+  call w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, cmem_size, cmem_offs, ierr, no_dump)
+
+end subroutine w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v1
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] general function to write processor data 3d complex(kind=[_IO_MEMVAR_KIND_]) dataset
+!> @details  - 'loc_id' must be from an HDF5 file opened collectivly \n
+!>           e.g. \code call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                      call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>                \endcode
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id        hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name     dataset name in hdf file
+!> @param   cfile_offs_abs     offset of processor specific data
+!> @param   cmem_dims     dimension of data in mem
+!> @param   cmem          memory to read from
+!> @param   ierr          return code
+!> @param   no_dump       if true, skip real writing
+!>
+!> @ingroup interf_pvala
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, cfile_offs_abs, cmem_dims, cmem, cmem_size, cmem_offs, ierr, no_dump)
+  use iso_C_binding
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(len=*), intent(in) :: dset_name
+  integer       , intent(in) :: cfile_offs_abs ([_IO_MEMVAR_DIMS_])
+  integer       , intent(in) :: cmem_dims ([_IO_MEMVAR_DIMS_])
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: cmem
+  integer, intent(in) :: cmem_size([_IO_MEMVAR_DIMS_])
+  integer, intent(in) :: cmem_offs([_IO_MEMVAR_DIMS_])
+  integer, intent(out) :: ierr
+  logical, intent(in), optional :: no_dump
+
+  ! other vars
+  integer, dimension([_IO_MEMVAR_DIMS_]) :: mem_dims, mem_size, mem_offs, file_offs_abs
+  type(c_ptr) :: cptr
+  real(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DDOT_]), pointer :: fptr
+
+  PRTFNC(w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2)
+  ierr = 0
+
+  if(present(no_dump)) then
+    if(no_dump) return
+  end if
+
+  ! convert complex to real
+  mem_size = cmem_size
+  mem_size(1) = mem_size(1)*2
+
+  mem_offs = cmem_offs
+  mem_offs(1) = mem_offs(1)*2
+
+  mem_dims = cmem_dims
+  mem_dims(1) = mem_dims(1)*2
+
+  file_offs_abs = cfile_offs_abs
+  file_offs_abs(1) = file_offs_abs(1)*2
+
+  cptr = c_loc(cmem)
+  call c_f_pointer(cptr, fptr, mem_dims)
+
+! write dataset to file
+  call w_pval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_]_v2(loc_id, dset_name, file_offs_abs, mem_dims, fptr, mem_size, mem_offs, ierr)
+
+end subroutine w_pval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]_v2

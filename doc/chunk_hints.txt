@@ -1,0 +1,84 @@
+How to use chunking to get good performance
+(This text is mostly borrowed from http://wiki.h5py.googlecode.com/hg-history/wiki/GuideToCompression.wiki)
+===========================================
+
+Transparent compression and error detection are some of the most useful components in the HDF5 library.
+However, a few pitfalls await the casual user of these features.  This document is a quick overview of how chunking and compression work in HDF5, and how you can make best use of them from h5py.  *If your compressed datasets are unexpectedly slow, you should read this.*
+
+= The mysteries of chunked data =
+
+== How compression works ==
+
+Nonchunked data in HDF5 is (typically) stored in contiguous space; a large block of the file is reserved and elements are written one after another.
+Depending on the access pattern reading/writing can be very slow.  HDF5 solves this by adding another storage strategy: _chunked_ storage.
+Instead of storing data in one continuous lump, it is divided into discrete "chunks" which are then indexed in the file using a B-tree.
+When a slice is read from the dataset, the proper chunks are recovered from the file and data extracted from them.
+
+Additionally this enables efficient data compression of error detection:
+All operations in HDF5 like compression and error detection are implemented as _filters_ which operate on chunks of data.
+For example, a dataset compressed with gzip and checksummed using fletcher32 is passed through a _filter pipeline_ which first
+calls a function to compress the data, and then another to compute the checksum.
+In this way a number of different transparent "effects" can be applied to a dataset.
+
+== Choosing chunk dimensions ==
+
+The size of the chunks used is user-specified and fixed when the dataset is created.  However, an additional choice must be made.
+If the dataset is 1-D, it can simply be sliced up into equally-sized parts.  But if the dataset is 2-D or higher, the _shape_ of the chunks must be decided upon.
+
+Suppose we want to store an array of twenty 1000-point time traces.  The dimensions of the dataset are (20, 1000).
+We decide we want to use a chunk size of 1000 elements.  Which of the following chunk shapes is best?
+
+C-style
+A) (1, 1000)
+B) (20, 50)
+
+Fortran style
+A) (1000, 1)
+B) (50, 20)
+
+To illustrate, consider two different applications reading from this dataset.
+Both applications read a total of 200 points.  Which is likely to be faster?
+1) the first reads out the leading 200 points of the first time trace.
+2) the second reads the first 10 points of all twenty records.
+
+When using chunk shape A, the data requested by the first application lies within a single chunk. HDF5 reads (and decompress/error check) 1000 elements.
+The second application needs to access part of the data for each trace; it needs to read all 20 chunks, (and decompress/error check) fully 20,000 elements to get the 200 it wants.
+
+But when using chunk shape B, the tables are turned. In order to read the first 200 elements of the first trace, the first application has to read in 4 chunks,
+since each only stores 50 elements along the time axis.  By contrast, the second application can read the first 10 elements of all the traces in a single chunk.
+
+So the surprising answer is that the correct chunk shape to use *depends on the expected access pattern*.
+There is no such thing as "the best" chunk shape, only the best for your intended application.
+In particular, chunked storage defeats C-style intuition about which elements are close together and which are far apart.
+
+== Picking a chunk shape ==
+
+When manually choosing a chunk shape for your dataset, try to stick to the following guidelines:
+
+  * the chunk-cache should be 2.5 times the size of a chunk to be cached properly.
+  * Large datasets should have larger chunks, to keep the total number of chunks down.  There is some file overhead involved with keeping track of chunks.
+  * The size of each chunk dimension should roughly match the size of each slice you expect to perform on it.
+    If you intend to slice into a dataset with integer indexing like `[idx,:]`, then it's a good idea to store your chunks as (1, 1000) instead of (1000, 1).
+
+== Real-world consequences of mis-chunking ==
+
+If an mismatched chunk shape is used, the effect on I/O performance can be dramatic.
+For example, consider an parallel application of 1000 MPI processes, each MPI process writing its hyperslabs of (1,1024,1280) to disk.
+The shape of the complete dataset is (1000, 1024, 1280), 4 bytes per pixel, for a grand total of 4.8 GB of data.
+The chunk size is choosen to be (32, 32, 40).  What happens when the parallel application tries to read/write to file?
+
+Each hyperslab requires `(1024/32)*(1280/40) = 1024` chunks to be touched ... per MPI process => in sum 1.024.000 chunks are touched !!!
+In other words, since the chunking dimension on the first axis is 32, _we access every single chunk 32 times_ per MPI process.
+And keep in mind: each chunk is located somewhere else in the file and therefore on some other file system block.
+As a parallel file system uses block locking parallel read/write is highly affected by this.
+
+If we would use any filter like compression it would be even worst:
+each chunk is `32*32*40*4 = 160k`, for a total of about *160 MB* of data, which has to be shuffled around to write a single image per MPI process!!
+Of course this amount of data can't fit in the cache, so every time an hyperslab is written, 160 MB of data is read from disk modified and written back.
+
+Now imagine a chunking shape of (1, 1024, 1280).
+The number of chunks accessed per hyperslab are just 1 and each is exclusively accessed by one single MPI process.
+
+== More information ==
+
+The [http://www.hdfgroup.org/HDF5/doc/UG/index.html HDF5 User's Guide] has an excellent discussion of chunking and compression, although from a C perspective.

@@ -1,0 +1,5 @@
+
+# integer 8 support
+# string support
+# read/write of multiple 3d-arrays in memory to single 4d-array in HDF5 file to increase message sizes
+# autotune settings for best performance

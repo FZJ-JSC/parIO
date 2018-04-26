@@ -1,0 +1,108 @@
+default: all
+
+# ====================== #
+# Optional code features #
+# ====================== #
+USE_DEBMODE             := NO
+
+# ====================== #
+# HDF5 Path              #
+# ====================== #
+HDF5_BASE     = /bgsys/local/hdf5/
+
+# ====================== #
+# Revision               #
+# ====================== #
+# SVN #####################
+REV_PPDEF := -WF,-D'SVN_REV="$(shell svnversion -n .)"'
+
+# GIT #####################
+#REV_PPDEF := -WF,-D'DEV_REV="$(shell git describe --dirty --match "v[0-9]*" --abbrev=7| sed -e 's/-/./g' )"'
+
+###################################################################################
+############### DO NOT CHANGE BEYONG THIS POINT WITHOUT KNOWLEDGE #################
+###################################################################################
+
+# ================ #
+# general commands
+# ================ #
+DEL_FILE      = rm -f
+DEL_DIR       = rm -rf
+CHK_DIR_EXISTS= test -d
+MKDIR         = mkdir -p
+COPY_FILE     = cp -f
+SED           = sed
+DOXYGEN       = doxygen
+
+# =========== #
+# Directories #
+# =========== #
+HOMEDIR = $(shell pwd | sed -e 's/\/src.*//')
+LIBDIR  = $(HOMEDIR)/lib
+MODDIR  = $(HOMEDIR)/include
+OBJDIR  = $(HOMEDIR)/.obj
+INTERFDIR= $(HOMEDIR)/src/interf
+
+# ===================== #
+# Compiler and archiver #
+# ===================== #
+ARCH    = qp
+BGQ_SYS = /bgsys/drivers/ppcfloor/comm/xl
+F90     = $(BGQ_SYS)/bin/mpixlf90_r
+CC      = $(BGQ_SYS)/bin/mpixlc_r 
+AR      = ar rcsv
+TMPFILES = F*.f90 *.lst
+
+# ============== #
+# Compiler flags #
+# ============== #
+F90FLAGS := -qalign=4k \
+            -qfree=f90 \
+            -qsuffix=f=f90:cpp=f90 \
+            -qarch=$(ARCH) -qtune=$(ARCH) \
+            -qalias=noaryovrlp \
+            -qnoescape \
+            -qmaxmem=-1
+#            -qmaxmem=131072
+F90FLAGS_RELEASE := $(F90FLAGS) -O3 -qhot=simd -qipa=inline $(FFLAGS)
+F90FLAGS_DEBUG   := $(F90FLAGS) -g  -d $(FFLAGS)
+
+# ================== #
+# External libraries #
+# ================== #
+# HDF5 #########################
+HDF5_INCFLAGS = -I$(HDF5_BASE)/include \
+                -I/bgsys/local/szip/v2.1/include \
+                -I/bgsys/local/zlib/v1.2.5/include
+HDF5_LDFLAGS  = -L$(HDF5_BASE)/lib \
+                -L/bgsys/local/szip/v2.1/lib \
+                -L/bgsys/local/zlib/v1.2.5/lib \
+                -lhdf5hl_fortran \
+                -lhdf5_hl \
+                -lhdf5_fortran \
+                -lhdf5 \
+                -lsz \
+                -lz              
+
+# SYSTEM #######################
+SYS_INCFLAGS = -I$(BGQ_SYS)/include \
+               -I. \
+               -I$(HOMEDIR)/src
+SYS_LDFLAGS  =
+SYS_PPDEFS   = -WF,-D__bg__
+
+# FEATURES ######################
+ifeq ($(USE_DEBMODE),YES)
+    FEATURE_PPDEFS := $(FEATURE_PPDEFS) -WF,-DUSE_DEBMODE
+else ifeq ($(USE_DEBMODE),NO)
+else
+    echo 'ERROR: USE_DEBMODE not set correctly - use YES or NO without spaces.'
+endif
+
+# ================ #
+# combine settings #
+# ================ #   
+LDFLAGS  = $(HDF5_LDFLAGS)  $(SYS_LDFLAGS)
+INCFLAGS = $(HDF5_INCFLAGS) $(SYS_INCFLAGS)
+MODFLAGS = -I$(MODDIR) -qmoddir=$(MODDIR)
+PPDEFS   = $(SYS_PPDEFS) $(REV_PPDEF) $(FEATURE_PPDEFS)

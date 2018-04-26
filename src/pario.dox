@@ -1,0 +1,223 @@
+!========================================
+!> \mainpage parIO - parallel IO
+!!
+!! Parallel IO has to be robust, fast, bug-free and still easy to use - this can become a difficult task.
+!! parIO is suppose to simplify parallel IO of MPI parallised applications using <a href="http://www.hdfgroup.org> HDF5 </a>
+!! as output file format.
+!! <BR>
+!! Look at 'testIO/io/testio_io_basics.F90' to have an idea, how simple your IO routines will look like 
+!! for global values:
+!! \code
+!!             if(open_group(file_id, '/settings', group_id) ) then
+!!                 call r_gval(group_id, 'nhalt', nhalt, ierr)
+!!                 call r_gval(group_id, 'nstat', nstat, ierr)
+!!                 call close_group(group_id, ierr)
+!!             end if
+!! \endcode
+!! or processor specific values:
+!! \code
+!!             if(open_group(file_id, '/flow', group_id)) then
+!!                 call r_pval(group_id, 'u', u_ptr, offs, ierr);
+!!                 call r_pval(group_id, 'v', v_ptr, offs, ierr)
+!!                 call r_pval(group_id, 'w', w_ptr, offs, ierr)
+!!                 call close_group(group_id, ierr)
+!!             end if
+!! \endcode
+!! <BR>
+!!
+!! \section features parIO will take care of ...
+!! - hide variable type and dimension specific functionality
+!! - different IO strategies (MPI-IO, POSIX, File-Splitting, direct-IO)
+!! - HDF5 specific settings and function (eg. buffer, padding, ...)
+!! - distribution of single array over multiple processors (hyperslab)
+!! - precision conversion (e.g. read float from double)<BR>
+!! - currently supported data types: real4,real8,integer4,complex4,complex8 (0D,1D,2D,3D)
+!! - error handling
+!! - dump tests
+!! - dump speed
+!!
+!! \section requirements requirements
+!! HDF5<BR>
+!! - <a href="http://www.hdfgroup.org/HDF5"> http://www.hdfgroup.org/HDF5 </a> (tested with 1.8.9)
+!! - check doc/configure_hdf5 for compilation hints
+!! - lots of third-party bindings (e.g. matlab, tecplot, paraview, visit, scilab, python, perl, etc.)
+!! - use <a href="http://www.hdfgroup.org/hdf-java-html/hdfview/">  hdfview </a> from hdfgroup to look inside any hdf5 file
+!!
+!! sed<BR>
+!! - <a href="http://de.wikipedia.org/wiki/Sed_(Unix)"> http://de.wikipedia.org/wiki/Sed_(Unix) </a>
+!! - sed is used to generate source files for different variable types in src/interf from templates
+!!
+!! \section license GNU Lesser General Public License (LGPL)
+!! parIO is free software; you can redistribute it and/or modify
+!! it under the terms of the GNU Lesser General Public License as
+!! published by the Free Software Foundation and appearing in the
+!! file LICENSE.LGPL included in the packaging of this file;
+!! either version 3 of the license, or (at your option) any later version.<BR>
+!! <BR>
+!! Please review the following information to ensure the GNU Lesser
+!! General Public License version 3 requirements will be met:
+!! <a href="http://www.gnu.org/licenses/lgpl-3.0.txt"> http://www.gnu.org/licenses/lgpl-3.0.txt </a><BR>
+!! <BR>
+!! This program is distributed in the hope that it will be useful,
+!! but WITHOUT ANY WARRANTY; without even the implied warranty of
+!! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!! GNU Lesser General Public License for more details.
+!! 
+!! \section contact contact
+!!   Jens Henrik Göbbert<BR>
+!!   Institute for Combustion Technology, RWTH Aachen University<BR>
+!!   <jens.henrik.goebbert()rwth-aachen.de><BR>
+!!
+!! \section content This manual is divided in the following sections ...
+!! - \subpage install_guide
+!! - \subpage developer_guide
+!! - \subpage example_page
+!!
+!! <BR> 
+!! \image html basic_structure.png
+!! <BR> 
+!========================================
+
+!========================================
+!> \page install_guide Install Guide
+!!
+!! \section comp_hdf5_sec Compile HDF5
+!! - download the latest HDF5 sources from <a href="http://www.hdfgroup.org/ftp/HDF5/current/src/"> http://www.hdfgroup.org/ftp/HDF5/current/src/ </a>
+!! - extract hdf5 source
+!! - copy doc/configure_hdf5 to hdf5 install directory
+!! - check and modify configure_hdf5 CAREFULLY(!)
+!! - run configure_hdf5 using commad 'source'
+!! \code e.g.:
+!!   wget www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.9.tar.gz
+!!   tar -xzf hdf5-1.8.9.tar.gz
+!!   cd hdf5-1.8.9
+!!   cp doc/configure_hdf5 .
+!!   source configure_hdf5
+!!   make
+!!   make install
+!! \endcode
+!!
+!! \section comp_pario_sec Compile parIO
+!!
+!! - create the link 'Makefile.in' in 'src' <BR>
+!!    which points to the system-dependent 'Makefile.in' from 'src/Makefiles/'
+!!    \code e.g.:
+!!      cd src
+!!      ln -s Makefiles/Makefile.in.intel Makefile.in
+!!    \endcode
+!! <BR> 
+!! - check the settings in 'Makefile.in' CAREFULLY(!) <BR>
+!!    e.g.: MPI Fortran compiler, HDF5 library path, etc.
+!! <BR> <BR>
+!! - compile parIO <BR>
+!!    \code e.g.:
+!!      make release
+!!    \endcode
+!!    Other available targets: debug, clean, distclean, doxygen
+!! <BR>
+!! <BR>
+!! - static library and modfiles will be created in 'lib' and 'include'
+!! 
+!! \section comp_testio_sec Compile & Run testIO
+!!
+!! - create the link 'Makefile.in' in 'testIO' <BR>
+!!    which points to the system-dependent 'Makefile.in' from 'testIO/Makefiles/'
+!!    \code e.g.:
+!!      cd src
+!!      ln -s Makefiles/Makefile.in.intel Makefile.in
+!!    \endcode
+!! <BR>      
+!! - check the settings in 'Makefile.in' CAREFULLY(!) <BR>
+!!    e.g.: MPI Fortran compiler, HDF5 library path, etc.
+!! <BR> <BR>   
+!! - compile testIO <BR>
+!!    \code e.g.:
+!!      make release
+!!    \endcode
+!!    Other available targets: debug, clean, distclean
+!!
+!========================================
+
+!========================================
+!> \page developer_guide Developer Guide
+!!
+!! \image html basic_structure.png
+!!
+!========================================
+
+!========================================
+!> \page example_page Example TestIO
+!!
+!! \section testio_sec testio.F90
+!! \include testio.F90
+!! <BR> <BR> 
+!! \section testio_io_sec testio_io.F90
+!! \include testio_io.F90
+!! <BR> <BR> 
+!! \section testio_io_basics_sec testio_io_basics.F90
+!! \include testio_io_basics.F90
+!!
+!========================================
+
+!========================================
+!> @defgroup main Main
+!! @brief main group
+!! @details
+!!     This group includes all modules and functions belonging to 'main'.
+!!
+
+!========================================
+!> @defgroup data Data
+!! @brief core group
+!! @details
+!!     This group includes all modules and functions belonging to 'core'.
+!!
+
+!========================================
+!> @defgroup interf_gval Global-Value-Interface
+!! @brief Interface to Global Value Functions
+!! @details
+!!     This group includes all functions belonging to the interface for global values.
+!!
+
+!========================================
+!> @defgroup interf_gdat Global-Data-Interface
+!! @brief Interface to Global Data Functions
+!! @details
+!!     This group includes all functions belonging to the interface for global data.
+!!
+
+!========================================
+!> @defgroup interf_pval Processor-Value-Interface
+!! @brief Interface to Processor Value Functions
+!! @details
+!!     This group includes all functions belonging to the interface for processor values.
+!!
+
+!========================================
+!> @defgroup interf_pdat Processor-Data-Interface
+!! @brief Interface to Processor Data Functions
+!! @details
+!!     This group includes all functions belonging to the interface for processor data.
+!!
+
+!========================================
+!> @defgroup interf_dset2dset Dataset-to-Dataset-Interface
+!! @brief Interface to Dataset to Dataset Functions
+!! @details
+!!     This group includes all functions belonging to the interface for dataset to dataset.
+!!
+
+!========================================
+!> @defgroup interf_hysl2dset Hyperslab-to-Dataset-Interface
+!! @brief Interface to Hyperslab to Dataset Functions
+!! @details
+!!     This group includes all functions belonging to the interface for hyperslab to dataset.
+!!
+
+!========================================
+!> @defgroup interf_hysl2hysl Hyperslab-to-Hyperslab-Interface
+!! @brief Interface to Hyperslab to Hyperslab Functions
+!! @details
+!!     This group includes all functions belonging to the interface for hyperslab to hyperslab.
+!!

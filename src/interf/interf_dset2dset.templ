@@ -1,0 +1,311 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_dset2dset
+!! @{
+!!
+!> @file dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_dset2dset()/w_dset2dset()
+!! @details - type: [_IO_MEMVAR_TYPE_]
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - low-level functions
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+#undef _IO_DIMS_
+#define _IO_DIMS_ [_IO_MEMVAR_DIMS_]
+
+!---------------------------------------------------------------------------
+!> @brief   [serial/parallel] read of dataset from HDF5 file to dataset in memory
+!> @details 'xfer_opt' must be the same as used for opening the HDF5 file before (default=H5P_DEFAULT_F)
+!>          if 'loc_id' is from an HDF5 file opened collectivly:
+!>              -'mpi_rproc' must be set and < 0
+!>              -'xfer_opt' must be set and should be MPIIO-based for best performance
+!>              -e.g. call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>              -     call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>          if 'loc_id' is from an HDF5 file opened serial.
+!>              -'mpi_rproc' must be unset or >=0
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name dataset name in hdf file
+!> @param   mem_dims  size of dataset dimensions
+!> @param   mem       start address of dataset in memory
+!> @param   ierr      return code
+!> @param   xfer_opt  (optional) transfer parameter as HDF5 property list - default: H5P_DEFAULT_F
+!> @param   mpi_rproc (optional) mpi processor reading dataset (default==0, <0==all procs reading data)
+!>
+!> @ingroup interf_dset2dset
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_] &
+           (loc_id, dset_name, mem_dims, mem, ierr, xfer_opt, mpi_rproc)
+    use hdf5
+    use pario_data
+    implicit none
+
+    ! function args
+    integer (HID_T)  , intent (in) :: loc_id
+    character (len=*), intent (in) :: dset_name
+    integer (HSIZE_T), intent (in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+    [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , intent (out), dimension ([_IO_MEMVAR_DTXT_]) :: mem
+    integer          , intent (out) :: ierr
+    integer (HID_T)  , intent (in), optional :: xfer_opt
+    integer          , intent (in), optional :: mpi_rproc
+
+    ! other vars
+    integer (HID_T) :: xfer_id
+    integer         :: mpi_r_proc
+    integer (HID_T) :: dset_id, open_err
+    integer (HID_T) :: mem_type_id
+    character(len=32) :: size_string
+    integer(kind=8)   :: mem_int8
+    double precision :: rtimer
+    integer           :: i
+
+    PRTFNC(r_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+    ierr = 0
+
+    PRTVERBOSE3('read hdf5 dataset ',trim(dset_name), ' to mem', 3)
+
+    ! set transfer option
+    if(present(xfer_opt)) then; xfer_id = xfer_opt
+    else;                       xfer_id = H5P_DEFAULT_F
+    end if
+
+    ! set mpi_w_proc
+    if(present(mpi_rproc)) then; mpi_r_proc = mpi_rproc
+    else;                        mpi_r_proc = mpi_myroot
+    end if
+
+    ! open dataset
+    call H5Eset_auto_f (0, ierr); CHKERRLW (ierr, 0)
+    call H5Dopen_f (loc_id, dset_name, dset_id, open_err)
+    call H5Eset_auto_f (1, ierr); CHKERRLW (ierr, 0)
+    if (open_err /= 0) then
+      PRTVERBOSE4('        read dataset "', TRIM (dset_name), loc_id, '" FAILED', 3)
+      ierr = open_err
+      return
+    end if
+
+    ! read data
+#ifdef _IO_MEMVAR_isREAL_
+    if (kind(mem) == kind(mySINGLE)) then
+      mem_type_id = H5T_NATIVE_REAL
+    else if (kind(mem) == kind(myDOUBLE)) then
+      mem_type_id = H5T_NATIVE_DOUBLE
+    else
+      PRTERR1('HDF5 reads floating point data of type REAL or DOUBLE PRECISION. Other kinds of precision are not supported.')
+    end if
+#endif
+#ifdef _IO_MEMVAR_isINTEGER_
+    if (kind(mem) == kind(myINTEGER)) then
+      mem_type_id = H5T_NATIVE_INTEGER
+    else
+      PRTERR1('HDF5 reads integer data of native type INTEGER. Other kinds of precision are not supported yet.')
+    end if
+#endif
+    if(mpi_r_proc < mpi_myroot .or. (mpi_r_proc >= mpi_myroot .and. mpi_r_proc == mpi_proc_id)) then
+
+      rtimer = -MPI_wtime()
+      call H5Dread_f (dset_id,        &
+                      mem_type_id,    &
+                      mem,            &
+                      mem_dims,       &
+                      ierr,           &
+                      xfer_prp=xfer_id)
+        !commented because of bug in hdf5.1.8.8_f03   CHKERRLW(ierr,0)
+      rtimer = rtimer +MPI_wtime()
+
+      if(dump_speed) then
+
+        ! calc size of dataset
+        mem_int8 = [_IO_MEMVAR_KIND_]
+        do i=1,[_IO_MEMVAR_DIMS_]; mem_int8 = mem_int8 *mem_dims(i); end do
+
+        if(mem_int8 < 1024**1) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**0), ' Bytes'
+        else if(mem_int8 < 1024**2) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**1), ' KBytes'
+        else if(mem_int8 < 1024**3) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**2), ' MBytes'
+        else
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**3), ' GBytes'
+        end if
+
+        if(mpi_r_proc >= mpi_myroot) then
+          write(*,'(a,a,a,a,a,es10.2,a)') '         read dataset "',trim(dset_name), '" (', trim(adjustl(size_string)),') in ', rtimer, '[s]'
+        else
+          write(*,'(a,a,a,a,a,es10.2,a)') '         read dataset "',trim(dset_name), '" (', trim(adjustl(size_string)),'/thread) in ', rtimer, '[s]'
+        end if
+      end if
+
+    end if
+
+    call H5Dclose_f (dset_id, ierr); CHKERRLW (ierr, 0)
+
+end subroutine r_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+
+!---------------------------------------------------------------------------
+!> @brief   [serial/parallel] write dataset from memory to dataset in HDF file
+!> @details 'xfer_opt' must be the same as used for opening the HDF5 file before (default=H5P_DEFAULT_F)
+!>          if 'loc_id' is from an HDF5 file opened collectivly:
+!>              -'mpi_wproc' must be set and < 0
+!>              -'xfer_opt' must be set and should be MPIIO-based for best performance
+!>              -e.g. call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>              -     call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>          if 'loc_id' is from an HDF5 file opened serial.
+!>              -'mpi_wproc' must be unset or >=0
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name dataset name in hdf file
+!> @param   mem_dims  size of dataset dimensions
+!> @param   mem       start address of dataset in memory
+!> @param   ierr      return code
+!> @param   xfer_opt  (optional) transfer parameter as HDF5 property list - default: H5P_DEFAULT_F
+!> @param   mpi_wproc (optional) mpi processor writing dataset (default==0, <0==all procs must(!) write same data)
+!>
+!> @ingroup interf_dset2dset
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_] &
+           (loc_id, dset_name, mem_dims, mem, ierr, xfer_opt, mpi_wproc)
+    use hdf5
+    use pario_data
+    implicit none
+
+    ! function args
+    integer (HID_T)  , intent (in) :: loc_id
+    character (len=*), intent (in) :: dset_name
+    integer (HSIZE_T), intent (in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+    [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , intent (inout), dimension ([_IO_MEMVAR_DTXT_]) :: mem
+    integer          , intent (out) :: ierr
+    integer (HID_T)  , intent (in), optional :: xfer_opt
+    integer          , intent (in), optional :: mpi_wproc
+
+    ! other vars
+    integer (HID_T) :: xfer_id
+    integer         :: mpi_w_proc
+    integer (HID_T) :: dset_id, open_err
+    integer (HID_T) :: mem_type_id
+    character(len=32) :: size_string
+    integer(kind=8)   :: mem_int8
+    double precision :: wtimer
+    integer           :: i
+
+    PRTFNC(w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+    ierr = 0
+
+    PRTVERBOSE2('write mem to hdf5 dataset ',trim(dset_name), 3)
+
+    ! set transfer option
+    if(present(xfer_opt)) then; xfer_id = xfer_opt
+    else;                       xfer_id = H5P_DEFAULT_F
+    end if
+
+     ! set mpi_w_proc
+    if(present(mpi_wproc)) then; mpi_w_proc = mpi_wproc
+    else;                        mpi_w_proc = mpi_myroot
+    end if
+
+    ! open dataset
+    call H5Eset_auto_f (0, ierr); CHKERRLW (ierr, 0)
+    call H5Dopen_f (loc_id, dset_name, dset_id, open_err)
+    call H5Eset_auto_f (1, ierr); CHKERRLW (ierr, 0)
+    if (open_err /= 0) then
+      PRTVERBOSE3('        write dataset "', TRIM (dset_name), '" FAILED', 3)
+      ierr = open_err
+      return
+    end if
+
+    ! write data
+#ifdef _IO_MEMVAR_isREAL_
+    if (kind(mem) == kind(mySINGLE)) then
+      mem_type_id = H5T_NATIVE_REAL
+    else if (kind(mem) == kind(myDOUBLE)) then
+      mem_type_id = H5T_NATIVE_DOUBLE
+    else
+      PRTERR1('HDF5 writes floating point data of type REAL or DOUBLE PRECISION. Other kinds of precision are not supported.')
+    end if
+#endif
+#ifdef _IO_MEMVAR_isINTEGER_
+    if (kind(mem) == kind(myINTEGER)) then
+      mem_type_id = H5T_NATIVE_INTEGER
+    else
+      PRTERR1('HDF5 writes integer data of native type INTEGER. Other kinds of precision are not supported yet.')
+    end if
+#endif
+    if(mpi_w_proc < 0 .or. (mpi_w_proc >= 0 .and. mpi_w_proc == mpi_proc_id)) then
+
+      wtimer = -MPI_wtime()
+      call H5Dwrite_f (dset_id,        &
+                       mem_type_id,    &
+                       mem,            &
+                       mem_dims,       &
+                       ierr,           &
+                       xfer_prp=xfer_id); CHKERRLW (ierr, 0)
+      wtimer = wtimer +MPI_wtime()
+
+      if(dump_speed) then
+
+        ! calc size of dataset
+        mem_int8 = [_IO_MEMVAR_KIND_]
+        do i=1,[_IO_MEMVAR_DIMS_]; mem_int8 = mem_int8 *mem_dims(i); end do
+
+        if(mem_int8 < 1024**1) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**0), ' Bytes'
+        else if(mem_int8 < 1024**2) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**1), ' KBytes'
+        else if(mem_int8 < 1024**3) then
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**2), ' MBytes'
+        else
+          write(size_string,'(f10.2,a)') real(mem_int8,8)/(1024**3), ' GBytes'
+        end if
+
+        if(mpi_w_proc >= mpi_myroot) then
+          write(*,'(a,a,a,a,a,es10.2,a)') '         write dataset "',trim(dset_name), '" (', trim(adjustl(size_string)),') in ', wtimer, '[s]'
+        else
+          write(*,'(a,a,a,a,a,es10.2,a)') '         write dataset "',trim(dset_name), '" (', trim(adjustl(size_string)),'/thread) in ', wtimer, '[s]'
+        end if
+      end if
+
+    end if
+
+    call H5Dclose_f (dset_id, ierr); CHKERRLW (ierr, 0)
+
+end subroutine w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]

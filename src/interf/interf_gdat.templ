@@ -1,0 +1,461 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_gdat
+!! @{
+!!
+!> @file gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_gdat()/w_gdat()
+!! @details - type: [_IO_MEMVAR_TYPE_]
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - read/write non-collectively
+!!          - calls r_dset2dset_*() and w_dset2dset_*()
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+#undef _IO_DIMS_
+#define _IO_DIMS_ [_IO_MEMVAR_DIMS_]
+
+#if (_IO_DIMS_==1)
+!---------------------------------------------------------------------------
+!> @brief   version of r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() with non-array input
+!> @details [parallel] collectivly read same 1d dataset from HDF5 file to all mpi procs (incl. optional dump-test)\n
+!>           'loc_id' must be from an HDF5 file opened by all mpi procs collectivly !!! \n
+!>           \code
+!>                call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>           \endcode
+!>           - reads data with r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]()
+!>           - if 'dump-test' data is checked and overwritten
+!>           - wrapper function for r_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dname     dataset name in hdf file
+!> @param   dvalue    start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, dvalue, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in)  :: dname
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), intent(inout) :: dvalue
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: ddims(1) = (/1/)
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) :: dvalue_tmp(1)
+
+  PRTFNC(r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+  ierr = 0
+
+  call r_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, ddims, dvalue_tmp, ierr)
+  if(ierr == 0) dvalue = dvalue_tmp(1)
+
+ end subroutine r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+
+!---------------------------------------------------------------------------
+!> @brief   version of w_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() with non-array input
+!> @details [serial] init dataset and non-collectivly write dataset from memory to dataset in HDF file (incl. optional dump-test)\n
+!>           'loc_id' must be from an HDF5 file opened by a single mpi proc non-collectivly !!!\n
+!>           eg. call H5Fcreate_f(filepath, H5F_ACC_EXCL_F, file_id, ierr, access_prp = H5P_DEFAULT)\n
+!>           function must only be called by this single mpi proc !!!\n
+!>           - initialise dataset
+!>           - if dump-test overwrite data
+!>           - dump data with w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>           - wrapper function for w_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dname     dataset name in hdf file
+!> @param   dvalue    start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, dvalue, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dname
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), intent(inout) :: dvalue
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: ddims(1) = (/1/)
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) :: dvalue_tmp(1)
+
+  PRTFNC(w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+  ierr = 0
+
+  dvalue_tmp = (/dvalue/)
+  call w_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, ddims, dvalue_tmp, ierr)
+
+end subroutine w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+
+!---------------------------------------------------------------------------
+!> @brief   version of r_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() with vector input
+!> @details [parallel] collectivly read same 1d dataset from HDF5 file to all mpi procs (incl. optional dump-test)\n
+!>           'loc_id' must be from an HDF5 file opened by all mpi procs collectivly !!!
+!>           e.g. call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>           - read data with r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]()
+!>           - if dump-test check data
+!>           - wrapper function for r_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dname     dataset name in hdf file
+!> @param   dlen      length of vector 'dvalues'
+!> @param   dvalues   start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s(loc_id, dname, dlen, dvalues, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in)  :: dname
+  integer, intent(in)  :: dlen
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), intent(out) :: dvalues(dlen)
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: ddims(1)
+
+  PRTFNC(r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s)
+  ierr = 0
+
+  ddims(1) = dlen
+  call r_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, ddims, dvalues, ierr)
+
+ end subroutine r_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s
+
+!---------------------------------------------------------------------------
+!> @brief   version of w_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]() with vector input
+!> @details [serial] init dataset and non-collectivly write dataset from memory to dataset in HDF file (incl. optional dump-test)
+!>           'loc_id' must be from an HDF5 file opened by a single mpi proc non-collectivly !!!
+!>           eg. call H5Fcreate_f(filepath, H5F_ACC_EXCL_F, file_id, ierr, access_prp = H5P_DEFAULT)
+!>           function must only be called by this single mpi proc !!!
+!>           -initialise dataset
+!>           -if dump-test overwrite data
+!>           -dump data with w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dname     dataset name in hdf file
+!> @param   dlen      length of vector 'dvalues'
+!> @param   dvalues   start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s(loc_id, dname, dlen, dvalues, ierr)
+  use hdf5
+  use pario_data
+  implicit none
+
+  ! function args
+  integer(HID_T), intent(in):: loc_id
+  character(*), intent(in) :: dname
+  integer, intent(in) :: dlen
+  [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), intent(inout) :: dvalues(dlen)
+  integer, intent(out) :: ierr
+
+  ! other vars
+  integer :: ddims(1)
+
+  PRTFNC(w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s)
+  ierr = 0
+
+  ddims(1) = dlen
+  call w_gdat_1d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dname, ddims, dvalues, ierr)
+
+end subroutine w_gdat_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]s
+#endif
+
+!---------------------------------------------------------------------------
+!> @brief   [parallel] collectivly read same dataset from HDF5 file to all mpi procs (incl. optional dump-test)
+!> @details  'loc_id' must be from an HDF5 file opened by all mpi procs collectivly !!!
+!>           e.g. call H5Pset_fapl_mpio_f(pario_coll_facc_id, mpi_mycomm, mpi_info, ierr)
+!>                call H5Fopen_f(filepath, H5F_ACC_RDONLY_F, file_id, ierr, access_prp = pario_coll_facc_id)
+!>           -read data with r_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]()
+!>           -if dump-test check data
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name dataset name in hdf file
+!> @param   mem_dims  size of dataset dimension
+!> @param   mem       start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, mem_dims, mem, ierr)
+    use hdf5
+    use pario_data
+    implicit none
+
+    ! function args
+    integer(HID_T), intent(in):: loc_id
+    character(*)  , intent(in) :: dset_name
+    integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+    [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: mem
+    integer, intent(out) :: ierr
+
+    !  other vars
+    integer(HSIZE_T) :: dsize([_IO_MEMVAR_DIMS_])
+    integer (HID_T)  :: mem_type_id
+    integer :: i,j,k,m, mem_errs, mem_errs0
+
+    PRTFNC(r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+    ierr = 0
+
+    PRTVERBOSE2('read global data ',trim(dset_name), 2)
+
+    dsize = int(mem_dims,HSIZE_T)
+
+    ! read data with mpi proc 0
+    if(mpi_proc_id == mpi_myroot) then
+      call r_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_] &
+              (loc_id, trim(dset_name), dsize, mem, ierr, mpi_rproc=mpi_proc_id)
+      if(ierr .ne. 0) then ! e.g. open file/dataset error
+        if(mpi_proc_id == mpi_myroot) write(*,*) '  FAILED r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](): ',trim(dset_name)
+        return
+      endif
+    endif
+
+    ! broadcast to all mpi procs
+    call MPI_Bcast(mem, product(int(dsize,4))*[_IO_MEMVAR_KIND_], MPI_BYTE, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+
+    ! test if dump_test
+    if(dump_test) then
+      mem_errs = 0
+#if (_IO_DIMS_==1)
+      do i=1, mem_dims(1)
+        if(mem(i) /= i ) mem_errs = mem_errs +1
+      end do
+#endif
+#if (_IO_DIMS_==2)
+      do j=1, mem_dims(2)
+        if(mem_errs /= 0) exit
+        do i=1, mem_dims(1)
+          if(mem(i,j) /= i+j ) mem_errs = mem_errs +1
+        end do
+      end do
+#endif
+#if (_IO_DIMS_==3)
+      do k=1, mem_dims(3)
+        if(mem_errs /= 0) exit
+        do j=1, mem_dims(2)
+          if(mem_errs /= 0) exit
+          do i=1, mem_dims(1)
+            if(mem(i,j,k) /= i+j+k ) mem_errs = mem_errs +1
+          end do
+        end do
+      end do
+#endif
+#if (_IO_DIMS_==4)
+  do m=1, mem_dims(4)
+    if(mem_errs /= 0) exit
+    do k=1, mem_dims(3)
+      if(mem_errs /= 0) exit
+      do j=1, mem_dims(2)
+        if(mem_errs /= 0) exit
+        do i=1, mem_dims(1)
+          if(mem(i,j,k,m) /= i+j+k+m ) mem_errs = mem_errs +1
+        end do
+      end do
+    end do
+  end do
+#endif
+      call MPI_reduce(mem_errs, mem_errs0, 1, MPI_INTEGER, MPI_MAX, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+      if(mem_errs0 > 0) then
+        if(mpi_proc_id == mpi_myroot) write(*,*) '  FAILED: dump_test failed for ',trim(dset_name)
+      else
+        if(mpi_proc_id == mpi_myroot) write(*,*) '  PASS  : dump_test passed for ',trim(dset_name)
+      end if
+    endif
+
+end subroutine r_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+
+!---------------------------------------------------------------------------
+!> @brief   [serial] init dataset and non-collectivly write dataset from memory to dataset in HDF file (incl. optional dump-test)
+!> @details  Call this function only from a single mpi process.
+!>           'loc_id' must be from an HDF5 file opened by a single mpi proc non-collectivly !!!
+!>           eg. call H5Fcreate_f(filepath, H5F_ACC_EXCL_F, file_id, ierr, access_prp = H5P_DEFAULT)
+!>           function must only be called by this single mpi proc !!!
+!>           -initialise dataset
+!>           -if dump-test overwrite data
+!>           -dump data with w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]
+!>
+!> @see http://www.hdfgroup.org/HDF5/doc/RM/CollectiveCalls.html \n
+!>      http://www.hdfgroup.org/HDF5/faq/parallel-apis.html \n
+!>
+!> @param   loc_id    hdf5 location id representing path to dataset group in hdf file
+!> @param   dset_name dataset name in hdf file
+!> @param   mem_dims  size of dataset dimension
+!> @param   mem       start address of dataset in memory
+!> @param   ierr      return code
+!>
+!> @ingroup interf_gdat
+! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+!---------------------------------------------------------------------------
+subroutine w_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](loc_id, dset_name, mem_dims, mem, ierr)
+    use hdf5
+    use pario_data
+    implicit none
+
+    ! function args
+    integer(HID_T), intent(in) :: loc_id
+    character(*)  , intent(in) :: dset_name
+    integer       , intent(in) :: mem_dims ([_IO_MEMVAR_DIMS_])
+    [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) ,dimension ([_IO_MEMVAR_DTXT_]), target, intent (inout) :: mem
+    integer, intent(out) :: ierr
+
+    ! other vars
+    integer(HSIZE_T) :: dsize([_IO_MEMVAR_DIMS_])
+    integer (HID_T)  :: mem_type_id
+    [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) :: memtest
+    integer :: i,j,k,m
+
+    PRTFNC(w_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_])
+    ierr = 0
+
+    ! skip call if mpi_proc_id not equal mpi_myroot
+    if(mpi_proc_id /= mpi_myroot) return
+
+    PRTVERBOSE2('write global data ',trim(dset_name), 2)
+
+#ifdef _IO_MEMVAR_isREAL_
+    if (kind(mem) == kind(mySINGLE)) then
+      mem_type_id = H5T_NATIVE_REAL
+    else if (kind(mem) == kind(myDOUBLE)) then
+      mem_type_id = H5T_NATIVE_DOUBLE
+    else
+      PRTERR1('HDF5 supports floating point data of _native_ type REAL or DOUBLE PRECISION only.')
+    end if
+#endif
+#ifdef _IO_MEMVAR_isINTEGER_
+    if (kind(mem) == kind(myINTEGER)) then
+      mem_type_id = H5T_NATIVE_INTEGER
+    else
+      PRTERR1('HDF5 supports integer data of _native_ type INTEGER only.')
+    end if
+#endif
+
+    ! init dataset (must only be called by single mpi proc)
+    call init_dataset(loc_id, trim(dset_name), [_IO_MEMVAR_DIMS_], mem_dims, mem_type_id, ierr)
+      if(ierr .ne. 0) then ! e.g. dataset exists
+        write(*,*) '  FAILED init in w_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](): ',trim(dset_name)
+        return
+      endif
+
+    ! write dataset
+    ! (file is opend by all mpi procs - so all mpi procs have to open dataset, but only mpi_proc 0 is writing)
+    ! if dump_test fill with analytic values
+     if(dump_test) then
+#if (_IO_DIMS_==1)
+       do i=1, mem_dims(1)
+         mem(i) = i
+       end do
+#endif
+#if (_IO_DIMS_==2)
+     do j=1, mem_dims(2)
+          do i=1, mem_dims(1)
+            mem(i,j) = i+j
+          end do
+     end do
+#endif
+#if (_IO_DIMS_==3)
+     do k=1, mem_dims(3)
+       do j=1, mem_dims(2)
+         do i=1, mem_dims(1)
+          mem(i,j,k) = i+j+k
+        end do
+      end do
+     end do
+#endif
+#if (_IO_DIMS_==4)
+  do m=1, mem_dims(4)
+    do k=1, mem_dims(3)
+      do j=1, mem_dims(2)
+        do i=1, mem_dims(1)
+          mem(i,j,k,m) = i+j+k+m
+        end do
+      end do
+    end do
+  end do
+#endif
+     end if
+
+    ! write data with mpi_proc mpi_myroot and none-collective
+    dsize = int(mem_dims,HSIZE_T)
+    call w_dset2dset_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_] &
+                 (loc_id, trim(dset_name), dsize, mem, ierr, mpi_wproc=mpi_proc_id)
+
+    ! check for write error
+    if(ierr .ne. 0) then
+      write(*,*) '  FAILED write in w_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_](): ',trim(dset_name)
+      ierr = 0
+    endif
+
+end subroutine w_gdat_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]

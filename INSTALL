@@ -1,0 +1,30 @@
+
+# Compile parIO
+#--------------
+1. create the link 'Makefile.in' in 'src'
+   which points to the system-dependent 'Makefile.in' from 'src/Makefiles/'
+   e.g.:
+     cd src
+     ln -s Makefiles/Makefile.in.intel Makefile.in
+
+2. check the settings in Makefile.in
+   e.g.: MPI Fortran compiler, HDF5 library path, etc.
+
+3. compile parIO
+   e.g.:
+     make release
+
+# Compile & Test with testIO
+#---------------------------
+1. create the link 'Makefile.in' in 'testIO'
+   which points to the system-dependent 'Makefile.in' from 'testIO/Makefiles/'
+   e.g.:
+     cd src
+     ln -s Makefiles/Makefile.in.intel Makefile.in
+     
+2. check the settings in Makefile.in
+   e.g.: MPI Fortran compiler, HDF5 library path, etc
+   
+3. compile testIO
+   e.g.:
+     make release

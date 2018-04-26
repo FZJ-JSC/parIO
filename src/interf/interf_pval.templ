@@ -1,0 +1,303 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_pval
+!! @{
+!!
+!> @file pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_pval()/w_pval()
+!! @details - type: [_IO_MEMVAR_TYPE_]
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - read/write non-collectively
+!!          - read/write global values
+!!          - automatic data precision transform on read
+!!          - calls r_pdat()/w_pdat()
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+#undef _IO_DIMS_
+#define _IO_DIMS_ [_IO_MEMVAR_DIMS_]
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for r_pdat() incl. automatic data precision transform (do not use HDF5 internal conversion as it is unbelievable slow!)
+    !> @details  - check precision of data in file and transform to precision of dvalue
+    !>           - overwrites dvalue on read error
+    !>           - read data with mpi_proc_id==mpi_myroot and broadcast to others
+    !>           - file must be opened non-collectively
+    !>           - function for interface r_pval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[in]   foffs         offset of processor specific data
+    !> @param[in]   ddims         dimension of dataset to write
+    !> @param[in]   dvalue        dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_pval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1(loc_id, dname, foffs, ddims, dvalue, ierr)
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in) :: foffs ([_IO_MEMVAR_DIMS_])
+      integer, dimension ([_IO_MEMVAR_DIMS_]), intent(in) :: ddims
+      [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DTXT_]), target, intent(inout) :: dvalue
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: dsize ([_IO_MEMVAR_DIMS_])
+      integer :: doffs ([_IO_MEMVAR_DIMS_])
+
+      PRTFNC(r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1)
+      ierr = 0
+
+      dsize = ddims
+      doffs = 0
+
+      call r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+
+    end subroutine r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for r_pdat() incl. automatic data precision transform (do not use HDF5 internal conversion as it is unbelievable slow!)
+    !> @details  - check precision of data in file and transform to precision of dvalue
+    !>           - overwrites dvalue on read error
+    !>           - read data with mpi_proc_id==mpi_myroot and broadcast to others
+    !>           - file must be opened non-collectively
+    !>           - function for interface r_pval()
+    !>
+    !> @param[in]    loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]    dname         dataset name in hdf file
+    !> @param[in]    foffs         file offset of processor specific data
+    !> @param[in]    ddims         dimension of dataset in memory
+    !> @param[in]    dvalue        dataset[ddims]
+    !> @param[in]    dsize         size of data to write to dataset
+    !> @param[in]    foffs         offset of data to write to dataset
+    !> @param[out]   ierr          return code
+    !>
+    !> @ingroup interf_pval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in) :: foffs ([_IO_MEMVAR_DIMS_])
+      integer, dimension ([_IO_MEMVAR_DIMS_]), intent(in) :: ddims
+      [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DTXT_]), target, intent(inout) :: dvalue
+      integer :: dsize ([_IO_MEMVAR_DIMS_])
+      integer :: doffs ([_IO_MEMVAR_DIMS_])
+      integer, intent(out) :: ierr
+
+      ! other vars
+      [_IO_MEMVAR_TYPE_](kind=4), dimension ([_IO_MEMVAR_DDOT_]), allocatable :: dvalue4
+      [_IO_MEMVAR_TYPE_](kind=8), dimension ([_IO_MEMVAR_DDOT_]), allocatable :: dvalue8
+
+      integer(HID_T)  :: dtype_id
+      integer(SIZE_T) :: dprec
+      logical :: flag
+      integer :: convSP, convDP
+      integer :: open_err
+
+      PRTFNC(r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2)
+      ierr = 0
+
+      PRTVERBOSE2('read processor value ',trim(dname), 1)
+
+      if(mpi_proc_id == mpi_myroot) then
+
+          ! try to get dimension size of dataset
+          call read_dset_type(loc_id, dname, dtype_id, dprec, open_err)
+          if(open_err == 0) then
+
+              ! check the type of dset
+              convSP = 0
+              convDP = 0
+#ifdef _IO_MEMVAR_isREAL_
+              call h5tequal_f(H5T_NATIVE_REAL, dtype_id, flag, ierr); CHKERRLW(ierr,0)
+              if(flag) then
+                if(dprec /= REAL_SP) then; PRTERR1('data precision confusion'); endif
+                if([_IO_MEMVAR_KIND_] /= REAL_SP) then
+                  PRTVERBOSE5('  Data Conversion of ',trim(dname),'. reading H5T_NATIVE_REAL (precision =',dprec,')',1)
+                  convSP = 1
+                end if
+              else
+                call h5tequal_f(H5T_NATIVE_DOUBLE, dtype_id, flag, ierr); CHKERRLW(ierr,0)
+                if(flag) then
+                  if(dprec /= REAL_DP) then; PRTERR1('data precision confusion'); endif
+                  if([_IO_MEMVAR_KIND_] /= REAL_DP) then
+                    PRTVERBOSE5('  Data Conversion of ',trim(dname),'. reading H5T_NATIVE_DOUBLE (precision =',dprec,')',1)
+                    convDP = 1
+                  end if
+                else
+                  PRTERR1('real or double type expected, but not found.')
+                end if
+              end if
+#endif
+#ifdef _IO_MEMVAR_isINTEGER_
+              call h5tequal_f(H5T_NATIVE_INTEGER, dtype_id, flag, ierr); CHKERRLW(ierr,0)
+              if(flag) then
+                if(dprec /= INT_SP) then; PRTERR1('data precision confusion'); endif
+                if([_IO_MEMVAR_KIND_] /= INT_SP) then
+                  PRTVERBOSE5('  Data Conversion of ',trim(dname),'. reading H5T_NATIVE_INTEGER (precision =',dprec,')',1)
+                  convSP = 1
+                end if
+              else
+                PRTERR1('integer type expected, but not found.')
+              end if
+#endif
+          end if
+
+      endif
+
+      ! if open error (dvalue not written)
+      call MPI_Bcast(open_err, 1, MPI_INTEGER, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+      if(open_err /= 0) then
+        ierr = -1
+        return
+      end if
+
+      ! single precision dataset to MP-precision dataset
+      call MPI_Bcast(convSP,  1, MPI_INTEGER, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+      call MPI_Bcast(convDP,  1, MPI_INTEGER, mpi_myroot, mpi_mycomm, ierr); CHKERRQ1(ierr, MPI_SUCCESS)
+      if(convSP == 1) then
+        allocate(dvalue4([_IO_MEMVAR_DTXT_]), stat=ierr); CHKERRQ0(ierr)
+        call r_pdat(loc_id, dname, foffs, ddims, dvalue4, dsize, doffs, ierr)
+        if(ierr == 0) dvalue = dvalue4
+        deallocate(dvalue4)
+#ifdef _IO_MEMVAR_isREAL_
+      ! double precision dataset to MP-precision dataset
+      else if(convDP == 1) then
+        allocate(dvalue8([_IO_MEMVAR_DTXT_]), stat=ierr); CHKERRQ0(ierr)
+        call r_pdat(loc_id, dname, foffs, ddims, dvalue8, dsize, doffs, ierr)
+        if(ierr == 0) dvalue = dvalue8
+        deallocate(dvalue8)
+#endif
+      ! MP-precision dataset to MP-precision dataset
+      else
+        call r_pdat(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+      end if
+
+    end subroutine r_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for w_pdat()
+    !> @details  - overwrites dvalue on write error
+    !>           - write data of/with mpi_proc_id==mpi_myroot
+    !>           - file must be opened non-collectively
+    !>           - function for interface w_pval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[in]   foffs         offset of processor specific data
+    !> @param[in]   ddims         dimension of dataset to write
+    !> @param[in]   dvalue        dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_pval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1(loc_id, dname, foffs, ddims, dvalue, ierr)
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in) :: foffs ([_IO_MEMVAR_DIMS_])
+      integer, dimension ([_IO_MEMVAR_DIMS_]), intent(in) :: ddims
+      [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DTXT_]), target, intent(inout) :: dvalue
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: dsize ([_IO_MEMVAR_DIMS_])
+      integer :: doffs ([_IO_MEMVAR_DIMS_])
+
+      PRTFNC(w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1)
+      ierr = 0
+
+      dsize = ddims
+      doffs = 0
+
+      call w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+
+    end subroutine w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v1
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for w_pdat()
+    !> @details  - overwrites dvalue on write error
+    !>           - write data of/with mpi_proc_id==mpi_myroot
+    !>           - file must be opened non-collectively
+    !>           - function for interface w_pval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[in]   foffs         offset of processor specific data
+    !> @param[in]   ddims         dimension of dataset to write
+    !> @param[out]  dvalue        dataset[ddims]
+    !> @param[in]   dsize         size of data to read for write
+    !> @param[in]   foffs         offset of data to read for write
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_pval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in) :: foffs ([_IO_MEMVAR_DIMS_])
+      integer, dimension ([_IO_MEMVAR_DIMS_]), intent(in) :: ddims
+      [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DTXT_]), target, intent(inout) :: dvalue
+      integer, intent(in) :: dsize ([_IO_MEMVAR_DIMS_])
+      integer, intent(in) :: doffs ([_IO_MEMVAR_DIMS_])
+      integer, intent(out) :: ierr
+
+      PRTFNC(w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2)
+      ierr = 0
+
+      PRTVERBOSE2('write processor value ',trim(dname), 1)
+
+      call w_pdat(loc_id, dname, foffs, ddims, dvalue, dsize, doffs, ierr)
+
+    end subroutine w_pval_[_IO_MEMVAR_DIMS_]d_[_IO_MEMVAR_TYPE_][_IO_MEMVAR_KIND_]_v2

@@ -1,0 +1,332 @@
+!----------------------------------------------------------------------------
+! This file is part of parIO
+!
+! Version 1.3
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    parIO is free software; you can redistribute it and/or modify
+!    it under the terms of the GNU Lesser General Public License as
+!    published by the Free Software Foundation and appearing in the
+!    file LICENSE.LGPL included in the packaging of this file;
+!    either version 3 of the License, or (at your option) any later version.
+!
+!    Please review the following information to ensure the GNU Lesser
+!    General Public License version 3 requirements will be met:
+!    http://www.gnu.org/licenses/lgpl-3.0.txt
+!
+!    This program is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU Lesser General Public License for more details.
+!----------------------------------------------------------------------------
+
+!========================================
+!> @addtogroup interf_gval
+!! @{
+!!
+!> @file gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_].F90
+!! @brief functions for interfaces r_gval()/w_gval()
+!! @details - type: complex
+!!          - kind: [_IO_MEMVAR_KIND_]
+!!          - dim : [_IO_MEMVAR_DIMS_]d
+!!          - read/write non-collectively
+!!          - read/write global values
+!!          - automatic data precision transform on read
+!!          - calls r_gdat()/w_gdat()
+!! @author Jens Henrik Goebbert
+!!
+!! @}
+!========================================
+
+! set DEFINES
+#undef _IO_MEMVAR_isREAL_
+#undef _IO_MEMVAR_isINTEGER_
+#define [_IO_MEMVAR_WHAT_]
+
+#undef _IO_DIMS_
+#define _IO_DIMS_ [_IO_MEMVAR_DIMS_]
+
+#if (_IO_DIMS_==1)
+    !---------------------------------------------------------------------------
+    !> @brief   special 0D wrapper function for r_gval[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]()
+    !> @details  - fixed to single value
+    !>           - dvalue will not be overwritten on read error (feature of all "r_gval_* functions")
+    !>           - file must be opened non-collectively
+    !>           - function for interface r_gval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[out]  dvalue        dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine r_gval_complex[_IO_MEMVAR_KIND_](loc_id, dname, dvalue, ierr)
+      use iso_C_binding
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      complex(kind=[_IO_MEMVAR_KIND_]), intent(inout) :: dvalue
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: ddims(1)
+      complex(kind=[_IO_MEMVAR_KIND_]), target :: dvalue_
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension(:), pointer :: fptr
+
+      PRTFNC(r_gval_complex[_IO_MEMVAR_KIND_])
+      ierr = 0
+
+      ! read data as real values
+      cptr = c_loc(dvalue_)
+      ddims(1) = 2
+      call c_f_pointer(cptr, fptr, ddims)
+
+      call r_gval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_](loc_id, dname, ddims, fptr, ierr)
+      if(ierr == 0) dvalue = dvalue_
+
+    end subroutine r_gval_complex[_IO_MEMVAR_KIND_]
+
+    !---------------------------------------------------------------------------
+    !> @brief   special 0D wrapper function for w_gval[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]()
+    !> @details  - fixed to single value
+    !>           - dvalue will not be overwritten on write error (feature of all "w_gval_* functions")
+    !>           - file must be opened non-collectively
+    !>           - function for interface w_gval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[in]   dvalue        dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine w_gval_complex[_IO_MEMVAR_KIND_](loc_id, dname, dvalue, ierr)
+      use iso_C_binding
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      complex(kind=[_IO_MEMVAR_KIND_]), intent(inout) :: dvalue
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: ddims(1)
+      complex(kind=[_IO_MEMVAR_KIND_]), target :: dvalue_
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension(:), pointer :: fptr
+
+      PRTFNC(w_gval_complex[_IO_MEMVAR_KIND_])
+      ierr = 0
+
+      ! write data as real values
+      dvalue_ = dvalue
+      cptr = c_loc(dvalue_)
+      ddims = 2
+      call c_f_pointer(cptr, fptr, ddims)
+
+      call w_gval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_](loc_id, dname, ddims, fptr, ierr)
+
+    end subroutine w_gval_complex[_IO_MEMVAR_KIND_]
+
+    !---------------------------------------------------------------------------
+    !> @brief   special 1D wrapper function for r_gval[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]()
+    !> @details  - fixed to vector (1d array)
+    !>           - dvalues will not be overwritten on read error (feature of all "r_gval_* functions")
+    !>           - file must be opened non-collectively
+    !>           - function for interface r_gval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dname         dataset name in hdf file
+    !> @param[in]   ddims         dataset dimension
+    !> @param[out]  dvalues       dataset vector (1d array)
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine r_gval_complex[_IO_MEMVAR_KIND_]s(loc_id, dname, ddims, dvalues, ierr)
+      use iso_C_binding
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in)         :: ddims
+      complex(kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DIMS_]), target, intent(inout) :: dvalues
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: ptr_dims(1), ddims_
+      complex(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DIMS_]), target :: dvalues_
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension(:), pointer :: fptr
+
+      PRTFNC(r_gval_complex[_IO_MEMVAR_KIND_]s)
+      ierr = 0
+
+      ! read data as real values
+      cptr = c_loc(dvalues_)
+      ptr_dims(1) = ddims*2
+      call c_f_pointer(cptr, fptr, ptr_dims)
+
+      ddims_ = ptr_dims(1)
+      call r_gval_real[_IO_MEMVAR_KIND_]s(loc_id, dname, ddims_, fptr, ierr)
+      if(ierr == 0) dvalues = dvalues_
+
+    end subroutine r_gval_complex[_IO_MEMVAR_KIND_]s
+
+    !---------------------------------------------------------------------------
+    !> @brief   special 1D wrapper function for w_gval[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]()
+    !> @details  - fixed to vector (1d array)
+    !>           - dvalues will not be overwritten on write error (feature of all "w_gval_* functions")
+    !>           - file must be opened non-collectively
+    !>           - function for interface w_gval()
+    !>
+    !> @param[in]     loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]     dname         dataset name in hdf file
+    !> @param[in]     ddims         dataset dimension
+    !> @param[in,out] dvalues       dataset vector (1d array)
+    !> @param[out]    ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine w_gval_complex[_IO_MEMVAR_KIND_]s(loc_id, dname, ddims, dvalues, ierr)
+      use iso_C_binding
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in)  :: loc_id
+      character(*), intent(in)    :: dname
+      integer, intent(in)         :: ddims
+      complex(kind=[_IO_MEMVAR_KIND_]), dimension ([_IO_MEMVAR_DIMS_]), target, intent(inout) :: dvalues
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer :: ptr_dims(1), ddims_
+      complex(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DIMS_]), target :: dvalues_
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension(:), pointer :: fptr
+
+      PRTFNC(w_gval_complex[_IO_MEMVAR_KIND_])
+      ierr = 0
+
+      ! write data as real values
+      dvalues_ = dvalues
+      cptr = c_loc(dvalues_)
+      ptr_dims(1) = ddims*2
+      call c_f_pointer(cptr, fptr, ptr_dims)
+
+      ddims_ = ptr_dims(1)
+      call w_gval_real[_IO_MEMVAR_KIND_]s(loc_id, dname, ddims_, fptr, ierr)
+
+    end subroutine w_gval_complex[_IO_MEMVAR_KIND_]s
+
+#endif
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for r_gdat() incl. automatic data precision transform
+    !> @details  - check precision of data in file and transform to precision of dvalue
+    !>           - overwrites dvalue on read error
+    !>           - read data with mpi_proc_id==mpi_myroot and broadcast to others
+    !>           - file must be opened non-collectively
+    !>           - function for interface r_gval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dset_name     dataset name in hdf file
+    !> @param[in]   cmem_dims     dimension of dataset to read
+    !> @param[out]  cmem          dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine r_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_](loc_id, dset_name, ddims, cmem, ierr)
+      use iso_C_binding
+      use hdf5
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in):: loc_id
+      character(*), intent(in) :: dset_name
+      integer       , intent(in) :: ddims([_IO_MEMVAR_DIMS_])
+      complex(kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: cmem
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer, dimension([_IO_MEMVAR_DIMS_]) :: mem_dims
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DDOT_]), pointer :: fptr
+
+      PRTFNC(r_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_])
+      ierr = 0
+
+      ! let real-pointer 'fptr' point to complex value 'cmem'
+      cptr = c_loc(cmem)
+      mem_dims = ddims; mem_dims(1) = mem_dims(1)*2
+      call c_f_pointer(cptr, fptr, mem_dims)
+
+      call r_gval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_](loc_id, dset_name, mem_dims, fptr, ierr)
+
+    end subroutine r_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]
+
+    !---------------------------------------------------------------------------
+    !> @brief   general xD wrapper function for w_gdat()
+    !> @details  - overwrites dvalue on write error
+    !>           - write data of/with mpi_proc_id==mpi_myroot
+    !>           - file must be opened non-collectively
+    !>           - function for interface w_gval()
+    !>
+    !> @param[in]   loc_id        hdf5 location id representing path to dataset group in hdf file
+    !> @param[in]   dset_name     dataset name in hdf file
+    !> @param[in]   cmem_dims     dimension of dataset to write
+    !> @param[in]   cmem          dataset value
+    !> @param[out]  ierr          return code
+    !>
+    !> @ingroup interf_gval
+    ! additional doxygen-tags: @ingroup @param @author @version @bug, @warning, @todo, @see, @test
+    !---------------------------------------------------------------------------
+    subroutine w_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_](loc_id, dset_name, ddims, cmem, ierr)
+      use iso_C_binding
+      use hdf5
+      use pario_data
+      implicit none
+
+      ! function args
+      integer(HID_T), intent(in):: loc_id
+      character(len=*), intent(in) :: dset_name
+      integer       , intent(in) :: ddims ([_IO_MEMVAR_DIMS_])
+      [_IO_MEMVAR_TYPE_](kind=[_IO_MEMVAR_KIND_]) , dimension ([_IO_MEMVAR_DTXT_]), target, intent (out) :: cmem
+      integer, intent(out) :: ierr
+
+      ! other vars
+      integer, dimension([_IO_MEMVAR_DIMS_]) :: mem_dims
+      type(c_ptr) :: cptr
+      real(kind=[_IO_MEMVAR_KIND_]), dimension([_IO_MEMVAR_DDOT_]), pointer :: fptr
+
+      PRTFNC(w_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_])
+      ierr = 0
+
+      ! convert complex to real before write
+      cptr = c_loc(cmem)
+      mem_dims = ddims; mem_dims(1) = mem_dims(1)*2
+      call c_f_pointer(cptr, fptr, mem_dims)
+
+      ! write dataset to file
+      call w_gval_[_IO_MEMVAR_DIMS_]d_real[_IO_MEMVAR_KIND_](loc_id, dset_name, mem_dims, fptr, ierr)
+
+    end subroutine w_gval_[_IO_MEMVAR_DIMS_]d_complex[_IO_MEMVAR_KIND_]

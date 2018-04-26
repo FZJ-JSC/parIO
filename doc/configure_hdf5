@@ -1,0 +1,36 @@
+#
+# 1) change /path/to/hdf/install/dir
+# 2) change/check exported variables (eg. CC,CXX etc)  
+# 2) cd to extracted hdf5 source directory
+# 3) call this script with command 'source'
+#
+
+#  CC          C compiler command
+#  CFLAGS      C compiler flags
+#  LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a nonstandard directory <lib dir>
+#  LIBS        libraries to pass to the linker, e.g. -l<library>
+#  CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if you have headers in a nonstandard directory <include dir>
+#  FC          Fortran compiler command
+#  FCFLAGS     Fortran compiler flags
+#  CXX         C++ compiler command
+#  CXXFLAGS    C++ compiler flags
+#  CXXCPP      C++ preprocessor
+#  CPP         C preprocessor
+
+export CC=${MPICC}
+export CXX=${MPICXX}
+export FC=${MPIFC}
+
+export CFLAGS='-O3'
+export CXXFLAGS='-O3'
+export FCFLAGS='-O3'
+
+./configure \
+        --enable-fortran \
+        --enable-fortran2003 \
+        --enable-production \
+        --enable-shared=no \
+        --enable-static-exec \
+        --enable-parallel \
+        --enable-linux-lfs \
+        --prefix=/path/to/hdf/install/dir

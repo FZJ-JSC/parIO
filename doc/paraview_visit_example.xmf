@@ -1,0 +1,813 @@
+<?xml version="1.0" ?>
+
+<!-- 
+!----------------------------------------------------------------------------
+! This file is part of testIO
+!
+! Version 1.0
+!
+! Copyright (C) 2012 Jens Henrik Goebbert <jens.henrik.goebbert()rwth-aachen.de>
+! All rights reserved.
+!
+!    testIO is free software; Permission is hereby granted, free of charge, to
+!    any person obtaining a copy of this software and associated documentation
+!    files (the "Software"), to deal in the Software without restriction,
+!    including without limitation the rights to use, copy, modify, merge,
+!    publish, distribute, sublicense, and/or sell copies of the Software, and
+!    to permit persons to whom the Software is furnished to do so, subject to
+!    the following conditions:
+!
+!    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+!    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+!    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+!    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+!    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+!    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+!    DEALINGS IN THE SOFTWARE.
+!----------------------------------------------------------------------------
+-->
+
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd"[
+
+<!-- domain name  -->
+        <!ENTITY DomainName   "channel3d">
+
+<!-- dimension of complete HDF5 datasets -->
+        <!ENTITY DimsX   "512">
+        <!ENTITY DimsY   "256">
+        <!ENTITY DimsZ   "257">
+
+<!-- dimension of HDF5 hyperslab to load -->
+        <!ENTITY HSDimsX "512">
+        <!ENTITY HSDimsY "256">
+        <!ENTITY HSDimsZ "257">
+
+<!-- start of HDF5 hyperslab in complete HDF5 dataset -->
+        <!ENTITY HSDimsX_Start "0">
+        <!ENTITY HSDimsY_Start "0">
+        <!ENTITY HSDimsZ_Start "0">   
+        
+<!-- coordinates - location in HDF5 file  --> 
+        <!ENTITY coordX_Path   "channel3d.h5:/settings/grid/coordX">
+        <!ENTITY coordY_Path   "channel3d.h5:/settings/grid/coordY">
+        <!ENTITY coordZ_Path   "channel3d.h5:/settings/grid/coordZ">
+
+<!-- velocities - location in HDF5 file  -->        
+        <!ENTITY u_Path        "channel3d.h5:/flow/u">
+        <!ENTITY v_Path        "channel3d.h5:/flow/v">
+        <!ENTITY w_Path        "channel3d.h5:/flow/w">
+        <!ENTITY u_fluc_Path   "channel3d.h5:/flow/u_fluc">      
+
+        <!ENTITY dudx_Path     "channel3d.h5:/flow/duvwdxyz/dudx">
+        <!ENTITY dudy_Path     "channel3d.h5:/flow/duvwdxyz/dudy">
+        <!ENTITY dudz_Path     "channel3d.h5:/flow/duvwdxyz/dudz">
+        
+        <!ENTITY dvdx_Path     "channel3d.h5:/flow/duvwdxyz/dvdx">
+        <!ENTITY dvdy_Path     "channel3d.h5:/flow/duvwdxyz/dvdy">
+        <!ENTITY dvdz_Path     "channel3d.h5:/flow/duvwdxyz/dvdz">        
+        
+        <!ENTITY dwdx_Path     "channel3d.h5:/flow/duvwdxyz/dwdx">
+        <!ENTITY dwdy_Path     "channel3d.h5:/flow/duvwdxyz/dwdy">
+        <!ENTITY dwdz_Path     "channel3d.h5:/flow/duvwdxyz/dwdz">        
+        
+        <!ENTITY duflucdx_Path "channel3d.h5:/flow/duvwdxyz/duflucdx">
+        <!ENTITY duflucdy_Path "channel3d.h5:/flow/duvwdxyz/duflucdy"> 
+        <!ENTITY duflucdz_Path "channel3d.h5:/flow/duvwdxyz/duflucdz">         
+
+<!-- divergence - location in HDF5 file  --> 
+        <!ENTITY uvwdiv_Path   "channel3d.h5:/flow/uvwdiv">         
+
+<!-- epsilon - location in HDF5 file  -->        
+        <!ENTITY eps_Path      "channel3d.h5:/flow/eps">
+
+<!-- kinetic energy - location in HDF5 file  --> 
+        <!ENTITY k_turb_Path   "channel3d.h5:/flow/k"> 
+
+<!-- vorticity - location in HDF5 file  -->
+        <!ENTITY vortx_Path    "channel3d.h5:/flow/vortx">
+        <!ENTITY vorty_Path    "channel3d.h5:/flow/vorty">
+        <!ENTITY vortz_Path    "channel3d.h5:/flow/vortz">
+      
+<!-- lambda2 criteria - location in HDF5 file  -->         
+        <!ENTITY lambda2_Path  "channel3d.h5:/flow/vortex/lambda2">
+
+<!-- gradient divergence - location in HDF5 file  --> 
+        <!ENTITY graddiv_Path   "channel3d.h5:TRAJdata/duflucdz_wall385/graddiv">
+
+<!-- eid - location in HDF5 file  --> 
+        <!ENTITY eid_Path       "channel3d.h5:TRAJdata/duflucdz_wall385/eid">
+        <!ENTITY eidrand_Path   "channel3d.h5:TRAJdata/duflucdz_wall385/eid_rand">
+
+]>
+
+<Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude" >
+
+  <Domain Name="&DomainName;">
+
+        <Grid Name="TemporalCollection" GridType="Collection" CollectionType="Temporal">
+
+                <!--spatial grid collection for time 0.0-->
+                <Grid Name="SpatialCollection" GridType="Collection" CollectionType="Spatial">
+                        <Time Type="Single" Value="0.00000000"/>
+
+                        <Grid Name="1-1-1_t0.0" Type="Uniform">
+
+                                <Topology TopologyType="3DRectMesh" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">  </Topology>
+                                <Geometry GeometryType="VXVYVZ">
+
+                                        <DataItem Name="Z" ItemType="HyperSlab" Dimensions="&HSDimsX;">
+                                            <DataItem Dimensions="1 3" Format="XML">
+                                                &HSDimsX_Start;
+                                                1              
+                                                &HSDimsX;
+                                            </DataItem>
+                                            <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision=" 8" Dimensions="&DimsX;">
+                                                &coordX_Path;
+                                            </DataItem>
+                                        </DataItem>
+
+                                        <DataItem Name="Y" ItemType="HyperSlab" Dimensions="&HSDimsY;">
+                                            <DataItem Dimensions="1 3" Format="XML">
+                                                &HSDimsY_Start;
+                                                1              
+                                                &HSDimsY;
+                                            </DataItem>
+                                            <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision=" 8" Dimensions="&DimsY;">
+                                                &coordY_Path;
+                                            </DataItem>
+                                        </DataItem>
+
+                                        <DataItem Name="X" ItemType="HyperSlab" Dimensions="&HSDimsZ;">
+                                            <DataItem Dimensions="1 3" Format="XML">
+                                                &HSDimsZ_Start;
+                                                1              
+                                                &HSDimsZ;
+                                            </DataItem>
+                                            <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision=" 8" Dimensions="&DimsZ;">
+                                                &coordZ_Path;
+                                            </DataItem>
+                                        </DataItem>
+
+                                </Geometry>
+
+                                <!-- uvw vector -->
+                                <Attribute Active="1" AttributeType="Vector" Center="Node" Name="uvw">
+                                  <DataItem ItemType="Function" Function="JOIN($0, $1, $2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &u_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &v_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &w_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+
+                                <!-- magn_uvw scalar 
+                                <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="magn_uvw">
+                                  <DataItem ItemType="Function" Function="SQRT(($0 * $0) + ($1 * $1) + ($2 * $2))" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &u_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &v_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &w_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+                                -->
+
+                                 <!-- u  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="u">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &u_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                 <!-- v  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="v">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &v_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                 <!-- w  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="w">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &w_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                <!-- uvw_fluc vector -->
+                                <Attribute Active="1" AttributeType="Vector" Center="Node" Name="uvw_fluc">
+                                  <DataItem ItemType="Function" Function="JOIN($0, $1, $2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &u_fluc_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &v_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &w_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+
+                                 <!-- u_fluc  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="u_fluc">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &u_fluc_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- epsilon  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="epsilon">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &eps_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- k turbulent  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="k_turb">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &k_turb_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                <!-- vorticity vector -->
+                                <Attribute Active="1" AttributeType="Vector" Center="Node" Name="vortxyz">
+                                  <DataItem ItemType="Function" Function="JOIN($0, $1, $2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &vortx_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &vorty_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &vortz_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+
+                                <!-- magn_vorticity scalar 
+                                <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="magn_vort">
+                                  <DataItem ItemType="Function" Function="SQRT(($0 * $0) + ($1 * $1) + ($2 * $2))" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &vortx_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &vorty_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                       &vortz_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+                                -->
+
+                                 <!-- vortx  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="vortx">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &vortx_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                 <!-- vorty  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="vorty">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &vorty_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                 <!-- vortz  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="vortz">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &vortz_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- lambda2  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="lambda2">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &lambda2_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                <!-- duvwdxyz vector -->
+                                <Attribute Active="1" AttributeType="Vector" Center="Node" Name="duvwdxyz">
+                                  <DataItem ItemType="Function" Function="JOIN($0, $1, $2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dudx_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dvdy_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dwdz_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+
+                                <!-- magn_duvwdxyz scalar 
+                                <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="magn_duvwdxyz">
+                                  <DataItem ItemType="Function" Function="SQRT(($0 * $0) + ($1 * $1) + ($2 * $2))" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dudx_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dvdy_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dwdz_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+                                -->
+
+                                 <!-- dudx  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dudx">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dudx_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                  <!-- dudy  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dudy">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dudy_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                  <!-- dudz  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dudz">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dudz_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                 <!-- dvdx  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dvdx">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dvdx_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+ 
+                                  <!-- dvdy  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dvdy">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dvdy_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+                                
+                                 <!-- dvdz  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dvdz">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dvdz_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>                                
+ 
+                                 <!-- dwdx  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dwdx">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dwdx_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- dwdy  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dwdy">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dwdy_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- dwdz  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="dwdz">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &dwdz_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                <!-- duvwflucdxyz vector -->
+                                <Attribute Active="1" AttributeType="Vector" Center="Node" Name="duvwflucdxyz">
+                                  <DataItem ItemType="Function" Function="JOIN($0, $1, $2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3" >
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &duflucdx_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dvdy_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                      <DataItem Dimensions="3 3" Format="XML">
+                                        &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                        1  1  1
+                                        &HSDimsZ; &HSDimsY; &HSDimsX;
+                                      </DataItem>
+                                      <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                        &dwdz_Path;
+                                      </DataItem>
+                                    </DataItem>
+                                  </DataItem>
+                                </Attribute>
+
+                                 <!-- duflucdx  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="duflucdx">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &duflucdx_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- duflucdy  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="duflucdy">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &duflucdy_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- duflucdz  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="duflucdz">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &duflucdz_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- uvw divergence  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="uvwdiv">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &uvwdiv_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- gradient divergence  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="graddiv">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &graddiv_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- eid  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="eid">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Float" Precision="8" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &eid_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                                 <!-- eid_rand  -->
+                                 <Attribute Active="1" AttributeType="Scalar" Center="Node" Name="eid_rand">
+                                    <DataItem ItemType="HyperSlab" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX;">
+                                        <DataItem Dimensions="3 3" Format="XML">
+                                            &HSDimsZ_Start; &HSDimsY_Start; &HSDimsX_Start;
+                                            1  1  1
+                                            &HSDimsZ; &HSDimsY; &HSDimsX;
+                                        </DataItem>
+                                        <DataItem ItemType="Uniform" Format="HDF" NumberType="Int" Precision="4" Dimensions="&DimsZ; &DimsY; &DimsX;">
+                                            &eidrand_Path;
+                                        </DataItem>
+                                    </DataItem>
+                                </Attribute>
+
+                         </Grid>
+                </Grid>
+        </Grid>
+    </Domain>
+</Xdmf>
+

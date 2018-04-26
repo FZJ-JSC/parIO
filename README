@@ -1,0 +1,106 @@
+
+parIO - parallel IO for Fortran MPI applications
+--------------------------------------------
+Parallel IO has to be robust, fast and still easy to use - this can become a difficult task, especially in highly parallel environments.
+HDF5 (http://www.hdfgroup.org/HDF5) has proven to be the first choice for parallel IO in the last years. But it still is not a 'plug-and-play' solution if you are looking for best performance.
+Without tuning it can easily slow down your IO compared with pure MPI-IO tremendously.
+
+But the benefits of HDF5 over pure MPI-IO are huge: http://www.hdfgroup.org/why_hdf.
+That´s why we wanted and had to stick with HDF5, even for our large computations with restart files > 2TByte each.
+Therefore the wrapper library parIO was developed to keep the IO of our applications simple, while getting best read/write performance on different supercomputers.
+It currently provides functionality to dump 1,2,3,4D arrays of different types, distributed over any number of MPI threads or not, as fast as possible to file
+while keeping the details away from the application developer.
+
+It is used in two different large scale applications of the ITV for production runs
+on the supercomputers JUQUEEN (http://www.fz-juelich.de/ias/jsc/EN/Expertise/Supercomputers) at the Research Center Jülich
+and the SuperMUC (http://www.lrz.de/services/compute/supermuc) at the Leibniz-Rechenzentrum.
+
+Look at 'testIO/io/testio_io_basics.F90' to have an idea, how simple your IO routines will look like
+for global values (e.g.):
+            if(open_group(file_id, '/settings', group_id) ) then
+                call r_gval(group_id, 'nhalt', nhalt, ierr)
+                call r_gval(group_id, 'nstat', nstat, ierr)
+                call close_group(group_id, ierr)
+            end if
+
+or for 1,2,3,4D arrays distributed over a large number of MPI threads
+
+             memory:          file:
+             ----------      -----------------------------
+            |          |    |          ----------         |
+            |   mem    | => |         |          |        |
+            | [mdims]  |    |         |          |        |
+             ----------     |         |          |        |
+                            | _foffs-> ----------         |
+                            |/                            |
+                             -----------------------------
+            if(open_group(file_id, '/flow', group_id)) then
+                call r_pval(group_id, 'u', foffs, mdims, mem, ierr);
+                call r_pval(group_id, 'v', foffs, mdims, mem, ierr)
+                call r_pval(group_id, 'w', foffs, mdims, mem, ierr)
+                call close_group(group_id, ierr)
+            end if
+
+             memory:                            file:
+             -----------------------------      -----------------------------
+            |                             |    |                             |
+            |          ----------         |    |          ----------         |
+            |         |          |        | => |         |          |        |
+            |         |          |        |    |         |          |        |
+            |         | [msize]  |        |    |         |          |        |
+            | _moffs_> ----------         |    | _foffs-> ----------         |
+            |/                    [mdims] |    |/                            |
+             -----------------------------      -----------------------------
+            if(open_group(file_id, '/flow', group_id)) then
+                call r_pval(group_id, 'u', foffs, mdims, mem, msize, moffs, ierr);
+                call r_pval(group_id, 'v', foffs, mdims, mem, msize, moffs, ierr)
+                call r_pval(group_id, 'w', foffs, mdims, mem, msize, moffs, ierr)
+                call close_group(group_id, ierr)
+            end if
+
+parIO will take care of:
+------------------------
+ - hide variable type and dimension specific functionality
+ - different IO strategies (MPI-IO, POSIX, File-Splitting, direct-IO)
+ - HDF5 specific settings and function (eg. buffer, padding, ...)
+ - distribution of single array over multiple processors (hyperslab)
+ - fast (compared with HDF5´s) precision conversion (e.g. read float from double), even for large datasets
+ - currently supported data types: real4,real8,integer4,complex4,complex8 (0D,1D,2D,3D,4D)
+ - simple setting attributes
+ - error handling
+ - dump tests
+ - prints dump speed
+
+requirements:
+-------------
+ Fortran 90/2003 compiler
+ HDF5
+  - http://www.hdfgroup.org/HDF5 (tested with 1.8.12)
+  - check doc/configure_hdf5 for compilation hints
+  - lots of third-party bindings (e.g. matlab, tecplot, paraview, visit, scilab, python, perl, etc.)
+ sed
+  - http://de.wikipedia.org/wiki/Sed_(Unix)
+  - sed is used to generate source files for different variable types in src/interf from templates
+
+license:
+--------
+  parIO is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation and appearing in the
+  file LICENSE.LGPL included in the packaging of this file;
+  either version 3 of the license, or (at your option) any later version.
+
+  Please review the following information to ensure the GNU Lesser
+  General Public License version 3 requirements will be met:
+  http://www.gnu.org/licenses/lgpl-3.0.txt
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Lesser General Public License for more details.
+
+contact:
+--------
+  Jens Henrik Göbbert
+  Institute for Combustion Technology, RWTH Aachen University
+  <jens.henrik.goebbert()rwth-aachen.de>
